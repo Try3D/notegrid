@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { API_URL } from "../config";
 
 type View = "main" | "generate" | "enter";
 
@@ -36,7 +37,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/register", {
+      const response = await fetch(`${API_URL}/api/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ uuid: generatedCode }),
@@ -68,11 +69,11 @@ export default function Login() {
     setError("");
 
     try {
-      const existsRes = await fetch(`/api/exists/${code}`);
+      const existsRes = await fetch(`${API_URL}/api/exists/${code}`);
       const existsData = await existsRes.json();
 
       if (!existsData.data?.exists) {
-        await fetch("/api/register", {
+        await fetch(`${API_URL}/api/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ uuid: code }),
@@ -91,7 +92,7 @@ export default function Login() {
   return (
     <div className="login-container">
       <div className="login-card">
-        <h1>Eisenhower</h1>
+        <h1>Noteflow</h1>
         <p className="login-subtitle">Your personal productivity companion</p>
 
         {view === "main" && (

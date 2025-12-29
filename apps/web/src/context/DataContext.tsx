@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useAuth } from "./AuthContext";
 import type { Task, Link, UserData } from "@eisenhower/shared";
+import { API_URL } from "../config";
 
 const CACHE_KEY = "eisenhower_data";
 
@@ -69,7 +70,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       syncTimeoutRef.current = window.setTimeout(async () => {
         try {
-          await fetch("/api/data", {
+          await fetch(`${API_URL}/api/data`, {
             method: "PUT",
             headers: {
               Authorization: `Bearer ${uuid}`,
@@ -107,7 +108,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const response = await fetch("/api/data", {
+      const response = await fetch(`${API_URL}/api/data`, {
         headers: {
           Authorization: `Bearer ${uuid}`,
           "Content-Type": "application/json",
