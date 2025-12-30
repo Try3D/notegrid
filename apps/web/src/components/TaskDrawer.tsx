@@ -137,7 +137,8 @@ export default function TaskDrawer({ task, onClose, onUpdate, onDelete, showQuad
       </div>
 
       <div className="drawer-footer">
-        <button className="delete-btn" onClick={onDelete}>Delete Task</button>
+        <button className="done-btn" onClick={onClose}>Done</button>
+        <button className="delete-btn" onClick={onDelete}>🗑</button>
       </div>
     </div>
   )

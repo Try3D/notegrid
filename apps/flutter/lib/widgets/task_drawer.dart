@@ -153,7 +153,7 @@ class _TaskEditorSheetState extends State<TaskEditorSheet> {
                 const SizedBox(height: 8),
                 _buildColorPicker(),
                 const SizedBox(height: 20),
-                _buildDeleteButton(),
+                _buildActionButtons(),
               ],
             ),
           ),
@@ -263,17 +263,43 @@ class _TaskEditorSheetState extends State<TaskEditorSheet> {
     );
   }
 
-  Widget _buildDeleteButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: _handleDelete,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.danger,
-          foregroundColor: Colors.white,
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: Container(
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.green,
+                borderRadius: BorderRadius.circular(2),
+                border: Border.all(color: Colors.black, width: 2),
+              ),
+              child: const Center(
+                child: Text(
+                  'Done',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ),
         ),
-        child: const Text('Delete Task'),
-      ),
+        const SizedBox(width: 12),
+        GestureDetector(
+          onTap: _handleDelete,
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppColors.danger,
+              borderRadius: BorderRadius.circular(2),
+              border: Border.all(color: Colors.black, width: 2),
+            ),
+            child: const Icon(Icons.delete, color: Colors.white, size: 22),
+          ),
+        ),
+      ],
     );
   }
 }

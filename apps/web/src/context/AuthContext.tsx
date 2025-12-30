@@ -1,11 +1,13 @@
 import { createContext, useContext, useState, ReactNode } from 'react'
 
 const AUTH_KEY = 'eisenhower_uuid'
+const CACHE_KEY = 'eisenhower_data'
 
 interface AuthContextType {
   uuid: string | null
   setUUID: (uuid: string) => void
   clearUUID: () => void
+  logout: () => void
   generateUUID: () => string
   isValidUUID: (uuid: string) => boolean
 }
@@ -27,6 +29,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUUIDState(null)
   }
 
+  const logout = () => {
+    localStorage.removeItem(AUTH_KEY)
+    localStorage.removeItem(CACHE_KEY)
+    setUUIDState(null)
+  }
+
   const generateUUID = () => {
     return crypto.randomUUID()
   }
@@ -37,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ uuid, setUUID, clearUUID, generateUUID, isValidUUID }}>
+    <AuthContext.Provider value={{ uuid, setUUID, clearUUID, logout, generateUUID, isValidUUID }}>
       {children}
     </AuthContext.Provider>
   )

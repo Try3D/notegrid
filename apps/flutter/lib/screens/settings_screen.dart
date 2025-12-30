@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/auth_provider.dart';
 import '../providers/data_provider.dart';
 import '../providers/theme_provider.dart';
@@ -90,6 +91,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _handleLogout() async {
+    final auth = context.read<AuthProvider>();
+    await auth.logout();
+    if (mounted) {
+      Navigator.of(context).pushReplacementNamed('/login');
+    }
+  }
+
   Future<void> _handleDeleteAccount() async {
     final auth = context.read<AuthProvider>();
     if (auth.uuid == null) return;
@@ -147,6 +156,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 description: 'Restore your tasks and links from a previously exported JSON backup. Copy JSON to clipboard then tap Import.',
                 child: _buildImportSection(),
               ),
+              const SizedBox(height: 20),
+              _buildLogoutSection(),
               const SizedBox(height: 20),
               _buildDangerSection(),
               const SizedBox(height: 30),
@@ -273,7 +284,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildUUIDDisplay(String? uuid, String maskedUUID) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      height: 60,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: context.bgColor,
         borderRadius: BorderRadius.circular(2),
@@ -282,30 +294,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              _showUUID ? (uuid ?? '') : maskedUUID,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                    letterSpacing: 1,
-                    color: context.textColor,
-                  ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Text(
+                _showUUID ? (uuid ?? '') : maskedUUID,
+                style: TextStyle(
+                  fontFamily: 'ShortStack',
+                  fontSize: 14,
+                  color: context.textColor,
+                ),
+              ),
             ),
           ),
-          IconButton(
-            onPressed: () => setState(() => _showUUID = !_showUUID),
-            icon: Icon(
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => setState(() => _showUUID = !_showUUID),
+            child: Icon(
               _showUUID ? Icons.visibility_off : Icons.visibility,
               color: context.mutedColor,
+              size: 20,
             ),
-            tooltip: _showUUID ? 'Hide' : 'Show',
           ),
-          IconButton(
-            onPressed: _handleCopyUUID,
-            icon: Icon(
+          const SizedBox(width: 12),
+          GestureDetector(
+            onTap: _handleCopyUUID,
+            child: Icon(
               _copied ? Icons.check : Icons.copy,
               color: context.mutedColor,
+              size: 20,
             ),
-            tooltip: 'Copy',
           ),
         ],
       ),
@@ -320,7 +337,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           Icon(Icons.download, color: context.textColor),
           const SizedBox(width: 10),
-          const Text('Export as JSON'),
+          Flexible(child: const Text('Export as JSON')),
         ],
       ),
     );
@@ -337,7 +354,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               Icon(Icons.upload, color: context.textColor),
               const SizedBox(width: 10),
-              const Text('Import from Clipboard'),
+              Flexible(child: const Text('Import from Clipboard')),
             ],
           ),
         ),
@@ -367,6 +384,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildLogoutSection() {
+    return _buildSection(
+      title: 'Logout',
+      description: 'Sign out of your account. Your data will remain saved.',
+      child: HandDrawnButton(
+        onPressed: _handleLogout,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.logout, color: context.textColor),
+            const SizedBox(width: 10),
+            const Text('Logout'),
+          ],
+        ),
+      ),
     );
   }
 
@@ -423,7 +458,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ElevatedButton(
                       onPressed: _deleting ? null : _handleDeleteAccount,
@@ -433,7 +469,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       child: Text(_deleting ? 'Deleting...' : 'Yes, Delete Everything'),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(height: 12),
                     OutlinedButton(
                       onPressed: _deleting ? null : () => setState(() => _showDeleteConfirm = false),
                       child: const Text('Cancel'),
@@ -462,14 +498,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           GestureDetector(
-            onTap: () {
-              // Open GitHub profile
+            onTap: () async {
+              final uri = Uri.parse('https://github.com/try3d');
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
             },
             child: Text(
               'try3d',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: context.textColor,
+                    color: AppColors.blue,
+                    decoration: TextDecoration.underline,
                   ),
             ),
           ),

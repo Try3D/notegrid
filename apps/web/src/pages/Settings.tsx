@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 
 export default function Settings() {
-  const { uuid, clearUUID } = useAuth();
+  const { uuid, logout } = useAuth();
   const { data, importData } = useData();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -100,13 +100,18 @@ export default function Settings() {
       });
 
       localStorage.removeItem("eisenhower_data");
-      clearUUID();
+      logout();
 
       navigate("/login");
     } catch (error) {
       console.error("Failed to delete account:", error);
       setDeleting(false);
     }
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
   };
 
   const maskedUUID = uuid ? uuid.replace(/./g, "*") : "";
@@ -248,6 +253,28 @@ export default function Settings() {
               {importStatus.message}
             </p>
           )}
+        </div>
+
+        <div className="settings-section">
+          <h2>Logout</h2>
+          <p className="settings-description">
+            Sign out of your account. Your data will remain saved.
+          </p>
+          <button className="settings-btn" onClick={handleLogout}>
+            <svg
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            Logout
+          </button>
         </div>
 
         <div className="settings-section danger-zone">

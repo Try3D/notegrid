@@ -1313,11 +1313,10 @@ body.dark .warning {
 
 .uuid-display code {
   flex: 1;
-  font-family: monospace;
+  font-family: "Short Stack", cursive;
   font-size: 0.9em;
   word-break: break-all;
   color: var(--text);
-  letter-spacing: 1px;
 }
 
 .uuid-actions {

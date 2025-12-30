@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+
+const String _fontFamily = 'ShortStack';
 
 class AppColors {
   // Light theme
@@ -80,77 +81,92 @@ class AppColors {
 class AppTheme {
   static TextTheme _buildTextTheme(Color textColor, Color mutedColor) {
     return TextTheme(
-      displayLarge: GoogleFonts.shortStack(
+      displayLarge: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 32,
         fontWeight: FontWeight.w400,
         color: textColor,
       ),
-      displayMedium: GoogleFonts.shortStack(
+      displayMedium: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 28,
         fontWeight: FontWeight.w400,
         color: textColor,
       ),
-      displaySmall: GoogleFonts.shortStack(
+      displaySmall: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 24,
         fontWeight: FontWeight.w400,
         color: textColor,
       ),
-      headlineLarge: GoogleFonts.shortStack(
+      headlineLarge: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 24,
         fontWeight: FontWeight.w400,
         color: textColor,
       ),
-      headlineMedium: GoogleFonts.shortStack(
+      headlineMedium: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 20,
         fontWeight: FontWeight.w400,
         color: textColor,
       ),
-      headlineSmall: GoogleFonts.shortStack(
+      headlineSmall: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 18,
         fontWeight: FontWeight.w400,
         color: textColor,
       ),
-      titleLarge: GoogleFonts.shortStack(
+      titleLarge: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 18,
         fontWeight: FontWeight.w400,
         color: textColor,
       ),
-      titleMedium: GoogleFonts.shortStack(
+      titleMedium: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 16,
         fontWeight: FontWeight.w400,
         color: textColor,
       ),
-      titleSmall: GoogleFonts.shortStack(
+      titleSmall: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 14,
         fontWeight: FontWeight.w400,
         color: textColor,
       ),
-      bodyLarge: GoogleFonts.shortStack(
+      bodyLarge: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 16,
         fontWeight: FontWeight.w400,
         color: textColor,
       ),
-      bodyMedium: GoogleFonts.shortStack(
+      bodyMedium: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 14,
         fontWeight: FontWeight.w400,
         color: textColor,
       ),
-      bodySmall: GoogleFonts.shortStack(
+      bodySmall: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 12,
         fontWeight: FontWeight.w400,
         color: mutedColor,
       ),
-      labelLarge: GoogleFonts.shortStack(
+      labelLarge: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 14,
         fontWeight: FontWeight.w400,
         color: textColor,
       ),
-      labelMedium: GoogleFonts.shortStack(
+      labelMedium: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 12,
         fontWeight: FontWeight.w400,
         color: textColor,
       ),
-      labelSmall: GoogleFonts.shortStack(
+      labelSmall: TextStyle(
+        fontFamily: _fontFamily,
         fontSize: 10,
         fontWeight: FontWeight.w400,
         color: mutedColor,
@@ -163,6 +179,7 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.light,
       scaffoldBackgroundColor: AppColors.lightBg,
+      fontFamily: _fontFamily,
       colorScheme: const ColorScheme.light(
         primary: AppColors.blue,
         secondary: AppColors.green,
@@ -174,11 +191,12 @@ class AppTheme {
         onError: Colors.white,
       ),
       textTheme: _buildTextTheme(AppColors.lightText, AppColors.lightMuted),
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.lightBg,
         foregroundColor: AppColors.lightText,
         elevation: 0,
-        titleTextStyle: GoogleFonts.shortStack(
+        titleTextStyle: TextStyle(
+          fontFamily: _fontFamily,
           fontSize: 20,
           fontWeight: FontWeight.w400,
           color: AppColors.lightText,
@@ -208,7 +226,8 @@ class AppTheme {
           borderSide: const BorderSide(color: AppColors.blue, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        hintStyle: GoogleFonts.shortStack(
+        hintStyle: const TextStyle(
+          fontFamily: _fontFamily,
           color: AppColors.lightMuted,
           fontSize: 14,
         ),
@@ -223,7 +242,8 @@ class AppTheme {
             borderRadius: BorderRadius.circular(2),
             side: const BorderSide(color: AppColors.lightBorder, width: 2),
           ),
-          textStyle: GoogleFonts.shortStack(
+          textStyle: const TextStyle(
+            fontFamily: _fontFamily,
             fontSize: 16,
             fontWeight: FontWeight.w400,
           ),
@@ -237,7 +257,8 @@ class AppTheme {
             borderRadius: BorderRadius.circular(2),
           ),
           side: const BorderSide(color: AppColors.lightBorder, width: 2),
-          textStyle: GoogleFonts.shortStack(
+          textStyle: const TextStyle(
+            fontFamily: _fontFamily,
             fontSize: 16,
             fontWeight: FontWeight.w400,
           ),
@@ -258,19 +279,19 @@ class AppTheme {
         color: AppColors.lightBorder,
         thickness: 2,
       ),
-      navigationRailTheme: NavigationRailThemeData(
+      navigationRailTheme: const NavigationRailThemeData(
         backgroundColor: AppColors.lightBg,
-        selectedIconTheme: const IconThemeData(color: Colors.white),
-        unselectedIconTheme: const IconThemeData(color: AppColors.lightBorder),
+        selectedIconTheme: IconThemeData(color: Colors.white),
+        unselectedIconTheme: IconThemeData(color: AppColors.lightBorder),
         indicatorColor: AppColors.blue,
         labelType: NavigationRailLabelType.none,
       ),
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: AppColors.lightBg,
         selectedItemColor: AppColors.blue,
         unselectedItemColor: AppColors.lightMuted,
-        selectedLabelStyle: GoogleFonts.shortStack(fontSize: 12),
-        unselectedLabelStyle: GoogleFonts.shortStack(fontSize: 12),
+        selectedLabelStyle: TextStyle(fontFamily: _fontFamily, fontSize: 12),
+        unselectedLabelStyle: TextStyle(fontFamily: _fontFamily, fontSize: 12),
       ),
     );
   }
@@ -280,6 +301,7 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: AppColors.darkBg,
+      fontFamily: _fontFamily,
       colorScheme: const ColorScheme.dark(
         primary: AppColors.blue,
         secondary: AppColors.green,
@@ -291,11 +313,12 @@ class AppTheme {
         onError: Colors.white,
       ),
       textTheme: _buildTextTheme(AppColors.darkText, AppColors.darkMuted),
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.darkBg,
         foregroundColor: AppColors.darkText,
         elevation: 0,
-        titleTextStyle: GoogleFonts.shortStack(
+        titleTextStyle: TextStyle(
+          fontFamily: _fontFamily,
           fontSize: 20,
           fontWeight: FontWeight.w400,
           color: AppColors.darkText,
@@ -325,7 +348,8 @@ class AppTheme {
           borderSide: const BorderSide(color: AppColors.blue, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        hintStyle: GoogleFonts.shortStack(
+        hintStyle: const TextStyle(
+          fontFamily: _fontFamily,
           color: AppColors.darkMuted,
           fontSize: 14,
         ),
@@ -340,7 +364,8 @@ class AppTheme {
             borderRadius: BorderRadius.circular(2),
             side: const BorderSide(color: AppColors.darkBorder, width: 2),
           ),
-          textStyle: GoogleFonts.shortStack(
+          textStyle: const TextStyle(
+            fontFamily: _fontFamily,
             fontSize: 16,
             fontWeight: FontWeight.w400,
           ),
@@ -354,7 +379,8 @@ class AppTheme {
             borderRadius: BorderRadius.circular(2),
           ),
           side: const BorderSide(color: AppColors.darkBorder, width: 2),
-          textStyle: GoogleFonts.shortStack(
+          textStyle: const TextStyle(
+            fontFamily: _fontFamily,
             fontSize: 16,
             fontWeight: FontWeight.w400,
           ),
@@ -375,19 +401,19 @@ class AppTheme {
         color: AppColors.darkBorder,
         thickness: 2,
       ),
-      navigationRailTheme: NavigationRailThemeData(
+      navigationRailTheme: const NavigationRailThemeData(
         backgroundColor: AppColors.darkBg,
-        selectedIconTheme: const IconThemeData(color: Colors.white),
-        unselectedIconTheme: const IconThemeData(color: AppColors.darkBorder),
+        selectedIconTheme: IconThemeData(color: Colors.white),
+        unselectedIconTheme: IconThemeData(color: AppColors.darkBorder),
         indicatorColor: AppColors.blue,
         labelType: NavigationRailLabelType.none,
       ),
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: AppColors.darkBg,
         selectedItemColor: AppColors.blue,
         unselectedItemColor: AppColors.darkMuted,
-        selectedLabelStyle: GoogleFonts.shortStack(fontSize: 12),
-        unselectedLabelStyle: GoogleFonts.shortStack(fontSize: 12),
+        selectedLabelStyle: TextStyle(fontFamily: _fontFamily, fontSize: 12),
+        unselectedLabelStyle: TextStyle(fontFamily: _fontFamily, fontSize: 12),
       ),
     );
   }

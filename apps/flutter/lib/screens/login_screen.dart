@@ -284,9 +284,11 @@ class _LoginScreenState extends State<LoginScreen> {
             onChanged: (v) => setState(() => _saved = v),
           ),
           const SizedBox(width: 10),
-          Text(
-            'I have saved my code safely',
-            style: Theme.of(context).textTheme.bodyMedium,
+          Flexible(
+            child: Text(
+              'I have saved my code safely',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
           ),
         ],
       ),
