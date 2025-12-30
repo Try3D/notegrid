@@ -15,6 +15,8 @@ const QUADRANTS: { id: Quadrant; title: string; subtitle: string; color: string 
 export default function Matrix() {
   const { tasks, updateTask, deleteTask, loading } = useData()
   const [activeTask, setActiveTask] = useState<Task | null>(null)
+  const [draggedTask, setDraggedTask] = useState<Task | null>(null)
+  const [dragOverQuadrant, setDragOverQuadrant] = useState<Quadrant | null>(null)
   const dragRef = useRef<string | null>(null)
 
   const getTasksByQuadrant = (q: Quadrant) => {
@@ -24,8 +26,15 @@ export default function Matrix() {
     return tasks.filter(t => t.q === q)
   }
 
-  const handleDragStart = (taskId: string) => {
+  const handleDragStart = (taskId: string, task: Task) => {
     dragRef.current = taskId
+    setDraggedTask(task)
+  }
+
+  const handleDragOver = (e: React.DragEvent, quadrant: Quadrant) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverQuadrant(quadrant)
   }
 
   const handleDrop = (quadrant: Quadrant) => {
@@ -33,7 +42,15 @@ export default function Matrix() {
       const newQ = quadrant === 'unassigned' ? null : quadrant
       updateTask(dragRef.current, { q: newQ })
       dragRef.current = null
+      setDraggedTask(null)
+      setDragOverQuadrant(null)
     }
+  }
+
+  const handleDragEnd = () => {
+    dragRef.current = null
+    setDraggedTask(null)
+    setDragOverQuadrant(null)
   }
 
   const handleToggleComplete = (task: Task) => {
@@ -57,11 +74,13 @@ export default function Matrix() {
   const renderTask = (task: Task) => (
     <div
       key={task.id}
-      className={`task ${task.completed ? 'completed' : ''}`}
+      className={`task ${task.completed ? 'completed' : ''} ${draggedTask?.id === task.id ? 'dragging' : ''}`}
       draggable
-      onDragStart={() => handleDragStart(task.id)}
+      onDragStart={() => handleDragStart(task.id, task)}
+      onDragEnd={handleDragEnd}
       onClick={() => setActiveTask(task)}
     >
+      <span className="drag-handle">⋮⋮</span>
       <input
         type="checkbox"
         checked={task.completed}
@@ -89,13 +108,14 @@ export default function Matrix() {
       <div className="matrix-layout">
         <div className="unassigned-column">
           <div
-            className="card"
-            onDragOver={(e) => e.preventDefault()}
+            className={`card ${dragOverQuadrant === 'unassigned' ? 'drag-over' : ''}`}
+            onDragOver={(e) => handleDragOver(e, 'unassigned')}
+            onDragLeave={() => setDragOverQuadrant(null)}
             onDrop={() => handleDrop('unassigned')}
           >
             <div className="card-header gray">
               Unassigned
-              <small>Drag to assign</small>
+              <small>Drag tasks here</small>
             </div>
             <div className="tasks">
               {getTasksByQuadrant('unassigned').map(renderTask)}
@@ -107,8 +127,9 @@ export default function Matrix() {
           {QUADRANTS.map(q => (
             <div
               key={q.id}
-              className="card"
-              onDragOver={(e) => e.preventDefault()}
+              className={`card ${dragOverQuadrant === q.id ? 'drag-over' : ''}`}
+              onDragOver={(e) => handleDragOver(e, q.id)}
+              onDragLeave={() => setDragOverQuadrant(null)}
               onDrop={() => handleDrop(q.id)}
             >
               <div className={`card-header ${q.color}`}>

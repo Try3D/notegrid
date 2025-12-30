@@ -173,6 +173,13 @@ header h1 {
   border-width: 3px;
   border-color: var(--border);
   border-radius: 3px;
+  transition: 0.2s;
+}
+
+.card.drag-over {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  transform: scale(1.01);
 }
 
 .card-header {
@@ -221,11 +228,12 @@ header h1 {
   align-items: center;
   gap: 10px;
   padding: 10px;
-  cursor: pointer;
+  cursor: grab;
   background: var(--task-bg);
   border: 2px solid var(--border);
   border-radius: 2px;
   transition: 0.15s;
+  user-select: none;
 }
 
 .task:nth-child(even) {
@@ -261,6 +269,12 @@ header h1 {
 .task.completed span {
   text-decoration: line-through;
   color: var(--muted);
+}
+
+.task.dragging {
+  opacity: 0.5;
+  transform: scale(0.98);
+  cursor: grabbing;
 }
 
 .task-color {
@@ -511,11 +525,47 @@ header h1 {
   border: 2px solid var(--border);
   border-radius: 2px;
   transition: 0.15s;
+  cursor: grab;
+  user-select: none;
+  position: relative;
 }
 
 .link-item:hover {
   background: var(--hover);
   transform: translateX(2px);
+}
+
+.link-item:hover .drag-handle {
+  opacity: 0.7;
+}
+
+.link-item.dragging {
+  opacity: 0.4;
+}
+
+.link-item.drag-over::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #3b82f6;
+}
+
+.link-drop-end {
+  height: 8px;
+  position: relative;
+}
+
+.link-drop-end.drag-over::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #3b82f6;
 }
 
 .link-favicon {

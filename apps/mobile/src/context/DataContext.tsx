@@ -1,17 +1,10 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  ReactNode,
-  useRef,
-} from "react";
-import { useAuth } from "./AuthContext";
-import type { Task, Link, UserData } from "@eisenhower/shared";
-import { API_URL } from "../config";
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
+import { useAuth } from './AuthContext';
+import { Task, Link, UserData, API_URL, COLORS, createEmptyUserData } from '../types';
 
-const CACHE_KEY = "eisenhower_data";
+const CACHE_KEY = 'eisenhower_data';
 
 interface ImportResult {
   success: boolean;
@@ -29,7 +22,7 @@ interface DataContextType {
   updateTask: (id: string, updates: Partial<Task>) => void;
   deleteTask: (id: string) => void;
   reorderTasks: (taskIds: string[]) => void;
-  addLink: (link: Omit<Link, "id" | "createdAt">) => void;
+  addLink: (link: Omit<Link, 'id' | 'createdAt'>) => void;
   deleteLink: (id: string) => void;
   reorderLinks: (linkIds: string[]) => void;
   importData: (jsonString: string) => ImportResult;
@@ -38,29 +31,11 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | null>(null);
 
-const COLORS = [
-  "#ef4444",
-  "#22c55e",
-  "#f97316",
-  "#3b82f6",
-  "#8b5cf6",
-  "#ec4899",
-  "#14b8a6",
-  "#facc15",
-  "#64748b",
-  "#0f172a",
-];
-
-function createEmptyData(): UserData {
-  const now = Date.now();
-  return { tasks: [], links: [], createdAt: now, updatedAt: now };
-}
-
 export function DataProvider({ children }: { children: ReactNode }) {
   const { uuid } = useAuth();
   const [data, setData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
-  const syncTimeoutRef = useRef<number | null>(null);
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const saveToAPI = useCallback(
     async (newData: UserData) => {
@@ -70,22 +45,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
         clearTimeout(syncTimeoutRef.current);
       }
 
-      syncTimeoutRef.current = window.setTimeout(async () => {
+      syncTimeoutRef.current = setTimeout(async () => {
         try {
           await fetch(`${API_URL}/api/data`, {
-            method: "PUT",
+            method: 'PUT',
             headers: {
               Authorization: `Bearer ${uuid}`,
-              "Content-Type": "application/json",
+              'Content-Type': 'application/json',
             },
             body: JSON.stringify(newData),
           });
         } catch (error) {
-          console.error("Failed to save data:", error);
+          console.error('Failed to save data:', error);
         }
       }, 300);
     },
-    [uuid],
+    [uuid]
   );
 
   const updateData = useCallback(
@@ -94,12 +69,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!prev) return prev;
         const newData = updater(prev);
         newData.updatedAt = Date.now();
-        localStorage.setItem(CACHE_KEY, JSON.stringify(newData));
+        AsyncStorage.setItem(CACHE_KEY, JSON.stringify(newData));
         saveToAPI(newData);
         return newData;
       });
     },
-    [saveToAPI],
+    [saveToAPI]
   );
 
   const fetchData = useCallback(async () => {
@@ -113,27 +88,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const response = await fetch(`${API_URL}/api/data`, {
         headers: {
           Authorization: `Bearer ${uuid}`,
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
       });
       const result = await response.json();
 
       if (result.success && result.data) {
         setData(result.data);
-        localStorage.setItem(CACHE_KEY, JSON.stringify(result.data));
+        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(result.data));
       } else {
-        const emptyData = createEmptyData();
+        const emptyData = createEmptyUserData();
         setData(emptyData);
-        localStorage.setItem(CACHE_KEY, JSON.stringify(emptyData));
+        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(emptyData));
       }
     } catch (error) {
-      console.error("Failed to fetch data:", error);
+      console.error('Failed to fetch data:', error);
 
-      const cached = localStorage.getItem(CACHE_KEY);
+      const cached = await AsyncStorage.getItem(CACHE_KEY);
       if (cached) {
         setData(JSON.parse(cached));
       } else {
-        setData(createEmptyData());
+        setData(createEmptyUserData());
       }
     } finally {
       setLoading(false);
@@ -141,21 +116,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [uuid]);
 
   useEffect(() => {
-    const cached = localStorage.getItem(CACHE_KEY);
-    if (cached && uuid) {
-      setData(JSON.parse(cached));
-    }
-
-    fetchData();
+    const loadCachedData = async () => {
+      const cached = await AsyncStorage.getItem(CACHE_KEY);
+      if (cached && uuid) {
+        setData(JSON.parse(cached));
+      }
+      fetchData();
+    };
+    loadCachedData();
   }, [uuid, fetchData]);
 
   const addTask = useCallback(
     (partial: Partial<Task>): Task => {
       const now = Date.now();
       const newTask: Task = {
-        id: crypto.randomUUID(),
-        title: "",
-        note: "",
+        id: Crypto.randomUUID(),
+        title: '',
+        note: '',
         tags: [],
         color: COLORS[0],
         q: null,
@@ -167,7 +144,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateData((prev) => ({ ...prev, tasks: [...prev.tasks, newTask] }));
       return newTask;
     },
-    [updateData],
+    [updateData]
   );
 
   const updateTask = useCallback(
@@ -175,11 +152,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateData((prev) => ({
         ...prev,
         tasks: prev.tasks.map((t) =>
-          t.id === id ? { ...t, ...updates, updatedAt: Date.now() } : t,
+          t.id === id ? { ...t, ...updates, updatedAt: Date.now() } : t
         ),
       }));
     },
-    [updateData],
+    [updateData]
   );
 
   const deleteTask = useCallback(
@@ -189,7 +166,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         tasks: prev.tasks.filter((t) => t.id !== id),
       }));
     },
-    [updateData],
+    [updateData]
   );
 
   const reorderTasks = useCallback(
@@ -199,24 +176,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const reorderedTasks = taskIds
           .map((id) => taskMap.get(id))
           .filter((t): t is Task => t !== undefined);
-        // Add any tasks that weren't in the taskIds array (shouldn't happen, but just in case)
         const remainingTasks = prev.tasks.filter((t) => !taskIds.includes(t.id));
         return { ...prev, tasks: [...reorderedTasks, ...remainingTasks] };
       });
     },
-    [updateData],
+    [updateData]
   );
 
   const addLink = useCallback(
-    (link: Omit<Link, "id" | "createdAt">) => {
+    (link: Omit<Link, 'id' | 'createdAt'>) => {
       const newLink: Link = {
         ...link,
-        id: crypto.randomUUID(),
+        id: Crypto.randomUUID(),
         createdAt: Date.now(),
       };
       updateData((prev) => ({ ...prev, links: [...prev.links, newLink] }));
     },
-    [updateData],
+    [updateData]
   );
 
   const deleteLink = useCallback(
@@ -226,7 +202,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         links: prev.links.filter((l) => l.id !== id),
       }));
     },
-    [updateData],
+    [updateData]
   );
 
   const reorderLinks = useCallback(
@@ -236,12 +212,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const reorderedLinks = linkIds
           .map((id) => linkMap.get(id))
           .filter((l): l is Link => l !== undefined);
-        // Add any links that weren't in the linkIds array (shouldn't happen, but just in case)
         const remainingLinks = prev.links.filter((l) => !linkIds.includes(l.id));
         return { ...prev, links: [...reorderedLinks, ...remainingLinks] };
       });
     },
-    [updateData],
+    [updateData]
   );
 
   const importData = useCallback(
@@ -249,8 +224,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       try {
         const parsed = JSON.parse(jsonString);
 
-        if (typeof parsed !== "object" || parsed === null) {
-          return { success: false, error: "Invalid JSON: expected an object" };
+        if (typeof parsed !== 'object' || parsed === null) {
+          return { success: false, error: 'Invalid JSON: expected an object' };
         }
 
         const importedTasks: Task[] = [];
@@ -258,28 +233,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         if (Array.isArray(parsed.tasks)) {
           for (const task of parsed.tasks) {
-            if (typeof task === "object" && task !== null) {
+            if (typeof task === 'object' && task !== null) {
               const now = Date.now();
               importedTasks.push({
-                id: typeof task.id === "string" ? task.id : crypto.randomUUID(),
-                title: typeof task.title === "string" ? task.title : "",
-                note: typeof task.note === "string" ? task.note : "",
+                id: typeof task.id === 'string' ? task.id : Crypto.randomUUID(),
+                title: typeof task.title === 'string' ? task.title : '',
+                note: typeof task.note === 'string' ? task.note : '',
                 tags: Array.isArray(task.tags)
-                  ? task.tags.filter((t: unknown) => typeof t === "string")
+                  ? task.tags.filter((t: unknown) => typeof t === 'string')
                   : [],
                 color:
-                  typeof task.color === "string" && COLORS.includes(task.color)
+                  typeof task.color === 'string' && COLORS.includes(task.color as any)
                     ? task.color
                     : COLORS[0],
-                q: ["do", "decide", "delegate", "delete", null].includes(task.q)
+                q: ['do', 'decide', 'delegate', 'delete', null].includes(task.q)
                   ? task.q
                   : null,
-                completed:
-                  typeof task.completed === "boolean" ? task.completed : false,
-                createdAt:
-                  typeof task.createdAt === "number" ? task.createdAt : now,
-                updatedAt:
-                  typeof task.updatedAt === "number" ? task.updatedAt : now,
+                completed: typeof task.completed === 'boolean' ? task.completed : false,
+                createdAt: typeof task.createdAt === 'number' ? task.createdAt : now,
+                updatedAt: typeof task.updatedAt === 'number' ? task.updatedAt : now,
               });
             }
           }
@@ -287,41 +259,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         if (Array.isArray(parsed.links)) {
           for (const link of parsed.links) {
-            if (typeof link === "object" && link !== null) {
+            if (typeof link === 'object' && link !== null) {
               importedLinks.push({
-                id: typeof link.id === "string" ? link.id : crypto.randomUUID(),
-                url: typeof link.url === "string" ? link.url : "",
-                title: typeof link.title === "string" ? link.title : "",
-                favicon: typeof link.favicon === "string" ? link.favicon : "",
-                createdAt:
-                  typeof link.createdAt === "number"
-                    ? link.createdAt
-                    : Date.now(),
+                id: typeof link.id === 'string' ? link.id : Crypto.randomUUID(),
+                url: typeof link.url === 'string' ? link.url : '',
+                title: typeof link.title === 'string' ? link.title : '',
+                favicon: typeof link.favicon === 'string' ? link.favicon : '',
+                createdAt: typeof link.createdAt === 'number' ? link.createdAt : Date.now(),
               });
             }
           }
         }
 
-        const validLinks = importedLinks.filter((l) => l.url.trim() !== "");
+        const validLinks = importedLinks.filter((l) => l.url.trim() !== '');
 
         if (importedTasks.length === 0 && validLinks.length === 0) {
-          return {
-            success: false,
-            error: "No valid tasks or links found in the file",
-          };
+          return { success: false, error: 'No valid tasks or links found in the file' };
         }
 
         const now = Date.now();
         const newData: UserData = {
           tasks: importedTasks,
           links: validLinks,
-          createdAt:
-            typeof parsed.createdAt === "number" ? parsed.createdAt : now,
+          createdAt: typeof parsed.createdAt === 'number' ? parsed.createdAt : now,
           updatedAt: now,
         };
 
         setData(newData);
-        localStorage.setItem(CACHE_KEY, JSON.stringify(newData));
+        AsyncStorage.setItem(CACHE_KEY, JSON.stringify(newData));
         saveToAPI(newData);
 
         return {
@@ -331,18 +296,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
         };
       } catch (e) {
         if (e instanceof SyntaxError) {
-          return {
-            success: false,
-            error: "Invalid JSON format. Please check the file contents.",
-          };
+          return { success: false, error: 'Invalid JSON format. Please check the file contents.' };
         }
         return {
           success: false,
-          error: `Import failed: ${e instanceof Error ? e.message : "Unknown error"}`,
+          error: `Import failed: ${e instanceof Error ? e.message : 'Unknown error'}`,
         };
       }
     },
-    [saveToAPI],
+    [saveToAPI]
   );
 
   return (
@@ -371,7 +333,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 export function useData() {
   const context = useContext(DataContext);
   if (!context) {
-    throw new Error("useData must be used within a DataProvider");
+    throw new Error('useData must be used within a DataProvider');
   }
   return context;
 }

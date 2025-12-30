@@ -5,14 +5,14 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
+  Alert,
   ScrollView,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { useAuth, useTheme } from '../hooks/useStore';
-import { API_URL } from '../config';
-import { Theme } from '../store/atoms';
+import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import { API_URL } from '../types';
 
 type ViewType = 'main' | 'generate' | 'enter';
 
@@ -21,11 +21,12 @@ export default function LoginScreen() {
   const [generatedCode, setGeneratedCode] = useState('');
   const [codeInput, setCodeInput] = useState('');
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const { setUUID, generateUUID, isValidUUID } = useAuth();
-  const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const { theme, isDark, toggleTheme } = useTheme();
 
   const handleGenerate = () => {
     const newUUID = generateUUID();
@@ -36,7 +37,8 @@ export default function LoginScreen() {
 
   const handleCopy = async () => {
     await Clipboard.setStringAsync(generatedCode);
-    Alert.alert('Copied!', 'Code copied to clipboard');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleContinue = async () => {
@@ -54,10 +56,10 @@ export default function LoginScreen() {
       if (result.success) {
         await setUUID(generatedCode);
       } else {
-        Alert.alert('Error', 'Failed to register. Please try again.');
+        setError('Failed to register. Please try again.');
       }
     } catch {
-      Alert.alert('Error', 'Failed to connect. Please try again.');
+      setError('Failed to connect. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -67,11 +69,12 @@ export default function LoginScreen() {
     const code = codeInput.trim();
 
     if (!isValidUUID(code)) {
-      Alert.alert('Invalid Code', 'Please check your code and try again.');
+      setError('Invalid code format. Please check and try again.');
       return;
     }
 
     setLoading(true);
+    setError('');
 
     try {
       const existsRes = await fetch(`${API_URL}/api/exists/${code}`);
@@ -87,51 +90,66 @@ export default function LoginScreen() {
 
       await setUUID(code);
     } catch {
-      Alert.alert('Error', 'Failed to connect. Please try again.');
+      setError('Failed to connect. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  const styles = createStyles(theme);
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.title}>NoteGrid</Text>
-        <Text style={styles.subtitle}>Your personal productivity companion</Text>
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.bg }]}
+      contentContainerStyle={styles.contentContainer}
+    >
+      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <Text style={[styles.title, { color: theme.text }]}>NoteGrid</Text>
+        <Text style={[styles.subtitle, { color: theme.muted }]}>
+          Your personal productivity companion
+        </Text>
 
         {view === 'main' && (
           <View style={styles.viewContainer}>
-            <Text style={styles.description}>
-              This app uses a simple secret code instead of username/password.
-              Your code is your identity - keep it safe!
+            <Text style={[styles.description, { color: theme.text }]}>
+              This app uses a simple secret code instead of username/password. Your code is your
+              identity - keep it safe!
             </Text>
-            <TouchableOpacity style={styles.primaryBtn} onPress={handleGenerate}>
-              <Text style={styles.primaryBtnText}>Generate New Code</Text>
+            <TouchableOpacity
+              style={[styles.button, styles.primaryButton, { borderColor: theme.blue }]}
+              onPress={handleGenerate}
+            >
+              <Text style={styles.primaryButtonText}>Generate New Code</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.secondaryBtn}
+              style={[styles.button, styles.secondaryButton, { borderColor: theme.border }]}
               onPress={() => {
                 setView('enter');
+                setError('');
                 setCodeInput('');
               }}
             >
-              <Text style={styles.secondaryBtnText}>I Have a Code</Text>
+              <Text style={[styles.secondaryButtonText, { color: theme.text }]}>I Have a Code</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {view === 'generate' && (
           <View style={styles.viewContainer}>
-            <Text style={styles.warning}>
-              This is your secret code. Save it somewhere safe - you won't see it again!
-            </Text>
+            <View style={[styles.warning, { borderColor: isDark ? '#f59e0b' : '#f59e0b' }]}>
+              <Text style={[styles.warningText, { color: isDark ? '#fcd34d' : '#92400e' }]}>
+                This is your secret code. Save it somewhere safe - you won't see it again!
+              </Text>
+            </View>
 
-            <View style={styles.codeContainer}>
-              <Text style={styles.codeText} selectable>
+            <View style={[styles.codeDisplay, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+              <Text style={[styles.code, { color: theme.text }]} selectable>
                 {generatedCode}
               </Text>
-              <TouchableOpacity style={styles.copyBtn} onPress={handleCopy}>
-                <Text style={styles.copyBtnText}>Copy</Text>
+              <TouchableOpacity style={styles.copyButton} onPress={handleCopy}>
+                <Text style={[styles.copyButtonText, { color: theme.muted }]}>
+                  {copied ? 'Copied!' : 'Copy'}
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -139,202 +157,239 @@ export default function LoginScreen() {
               style={styles.checkboxContainer}
               onPress={() => setSaved(!saved)}
             >
-              <View style={[styles.checkbox, saved && styles.checkboxChecked]}>
-                {saved && <Text style={styles.checkmark}>✓</Text>}
+              <View
+                style={[
+                  styles.checkbox,
+                  { borderColor: theme.border, backgroundColor: theme.card },
+                  saved && { backgroundColor: theme.blue, borderColor: theme.blue },
+                ]}
+              >
+                {saved && <Text style={styles.checkmark}>*</Text>}
               </View>
-              <Text style={styles.checkboxLabel}>I have saved my code safely</Text>
+              <Text style={[styles.checkboxLabel, { color: theme.text }]}>
+                I have saved my code safely
+              </Text>
             </TouchableOpacity>
 
+            {error ? <Text style={[styles.error, { color: theme.danger }]}>{error}</Text> : null}
+
             <TouchableOpacity
-              style={[styles.primaryBtn, (!saved || loading) && styles.disabledBtn]}
+              style={[
+                styles.button,
+                styles.primaryButton,
+                { borderColor: theme.blue },
+                (!saved || loading) && styles.disabledButton,
+              ]}
               onPress={handleContinue}
               disabled={!saved || loading}
             >
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color="#ffffff" />
               ) : (
-                <Text style={styles.primaryBtnText}>Continue to App</Text>
+                <Text style={styles.primaryButtonText}>Continue to App</Text>
               )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryBtn} onPress={() => setView('main')}>
-              <Text style={styles.secondaryBtnText}>Back</Text>
+            <TouchableOpacity
+              style={[styles.button, styles.secondaryButton, { borderColor: theme.border }]}
+              onPress={() => setView('main')}
+            >
+              <Text style={[styles.secondaryButtonText, { color: theme.text }]}>Back</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {view === 'enter' && (
           <View style={styles.viewContainer}>
-            <Text style={styles.description}>
+            <Text style={[styles.description, { color: theme.text }]}>
               Enter your secret code to access your data.
             </Text>
 
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border },
+              ]}
+              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              placeholderTextColor={theme.muted}
               value={codeInput}
               onChangeText={setCodeInput}
-              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-              placeholderTextColor={theme.textMuted}
               autoCapitalize="none"
               autoCorrect={false}
             />
 
+            {error ? <Text style={[styles.error, { color: theme.danger }]}>{error}</Text> : null}
+
             <TouchableOpacity
-              style={[styles.primaryBtn, loading && styles.disabledBtn]}
+              style={[
+                styles.button,
+                styles.primaryButton,
+                { borderColor: theme.blue },
+                loading && styles.disabledButton,
+              ]}
               onPress={handleLogin}
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color="#ffffff" />
               ) : (
-                <Text style={styles.primaryBtnText}>Login</Text>
+                <Text style={styles.primaryButtonText}>Login</Text>
               )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryBtn} onPress={() => setView('main')}>
-              <Text style={styles.secondaryBtnText}>Back</Text>
+            <TouchableOpacity
+              style={[styles.button, styles.secondaryButton, { borderColor: theme.border }]}
+              onPress={() => setView('main')}
+            >
+              <Text style={[styles.secondaryButtonText, { color: theme.text }]}>Back</Text>
             </TouchableOpacity>
           </View>
         )}
       </View>
+
+      <TouchableOpacity style={styles.themeToggle} onPress={toggleTheme}>
+        <Text style={[styles.themeToggleText, { color: theme.muted }]}>
+          {isDark ? 'Light Mode' : 'Dark Mode'}
+        </Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
 
-const createStyles = (theme: Theme) =>
+const createStyles = (theme: any) =>
   StyleSheet.create({
     container: {
+      flex: 1,
+    },
+    contentContainer: {
       flexGrow: 1,
       justifyContent: 'center',
-      alignItems: 'center',
       padding: 20,
-      backgroundColor: theme.background,
     },
     card: {
-      backgroundColor: theme.card,
-      borderRadius: 16,
-      padding: 24,
-      width: '100%',
-      maxWidth: 400,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 4,
+      borderWidth: 3,
+      borderRadius: 3,
+      padding: 30,
     },
     title: {
-      fontSize: 32,
-      fontWeight: 'bold',
+      fontSize: 28,
+      fontFamily: 'ShortStack_400Regular',
       textAlign: 'center',
       marginBottom: 8,
-      color: theme.text,
     },
     subtitle: {
-      fontSize: 16,
+      fontSize: 14,
+      fontFamily: 'ShortStack_400Regular',
       textAlign: 'center',
-      color: theme.textSecondary,
       marginBottom: 24,
     },
     viewContainer: {
-      gap: 16,
+      marginTop: 8,
     },
     description: {
       fontSize: 14,
-      color: theme.textSecondary,
-      textAlign: 'center',
-      lineHeight: 20,
+      fontFamily: 'ShortStack_400Regular',
+      lineHeight: 22,
+      marginBottom: 20,
+    },
+    button: {
+      padding: 14,
+      borderWidth: 2,
+      borderRadius: 2,
+      marginBottom: 12,
+      alignItems: 'center',
+    },
+    primaryButton: {
+      backgroundColor: '#3b82f6',
+    },
+    primaryButtonText: {
+      color: '#ffffff',
+      fontSize: 16,
+      fontFamily: 'ShortStack_400Regular',
+    },
+    secondaryButton: {
+      backgroundColor: 'transparent',
+    },
+    secondaryButtonText: {
+      fontSize: 16,
+      fontFamily: 'ShortStack_400Regular',
+    },
+    disabledButton: {
+      opacity: 0.5,
     },
     warning: {
-      fontSize: 14,
-      color: '#f97316',
-      textAlign: 'center',
-      lineHeight: 20,
-      fontWeight: '500',
-    },
-    codeContainer: {
-      backgroundColor: theme.inputBg,
-      borderRadius: 8,
+      backgroundColor: '#fef3c7',
+      borderWidth: 2,
+      borderRadius: 2,
       padding: 12,
+      marginBottom: 20,
+    },
+    warningText: {
+      fontSize: 14,
+      fontFamily: 'ShortStack_400Regular',
+      lineHeight: 20,
+    },
+    codeDisplay: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      borderWidth: 2,
+      borderRadius: 2,
+      padding: 12,
+      marginBottom: 20,
     },
-    codeText: {
+    code: {
       flex: 1,
-      fontFamily: 'monospace',
       fontSize: 12,
-      color: theme.text,
+      fontFamily: 'ShortStack_400Regular',
     },
-    copyBtn: {
-      backgroundColor: theme.primary,
+    copyButton: {
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 4,
     },
-    copyBtnText: {
-      color: '#fff',
-      fontSize: 12,
-      fontWeight: '600',
+    copyButtonText: {
+      fontSize: 14,
+      fontFamily: 'ShortStack_400Regular',
     },
     checkboxContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      marginBottom: 20,
     },
     checkbox: {
-      width: 24,
-      height: 24,
-      borderRadius: 4,
+      width: 22,
+      height: 22,
       borderWidth: 2,
-      borderColor: theme.border,
-      justifyContent: 'center',
+      borderRadius: 2,
+      marginRight: 10,
       alignItems: 'center',
-    },
-    checkboxChecked: {
-      backgroundColor: theme.primary,
-      borderColor: theme.primary,
+      justifyContent: 'center',
     },
     checkmark: {
-      color: '#fff',
-      fontSize: 14,
-      fontWeight: 'bold',
+      color: '#ffffff',
+      fontSize: 16,
+      fontFamily: 'ShortStack_400Regular',
     },
     checkboxLabel: {
       fontSize: 14,
-      color: theme.text,
+      fontFamily: 'ShortStack_400Regular',
     },
     input: {
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 8,
+      borderWidth: 2,
+      borderRadius: 2,
       padding: 12,
+      marginBottom: 12,
       fontSize: 14,
-      backgroundColor: theme.inputBg,
-      color: theme.text,
+      fontFamily: 'ShortStack_400Regular',
     },
-    primaryBtn: {
-      backgroundColor: theme.primary,
-      borderRadius: 8,
-      padding: 16,
+    error: {
+      fontSize: 14,
+      fontFamily: 'ShortStack_400Regular',
+      marginBottom: 12,
+    },
+    themeToggle: {
+      marginTop: 20,
       alignItems: 'center',
     },
-    primaryBtnText: {
-      color: '#fff',
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    secondaryBtn: {
-      backgroundColor: 'transparent',
-      borderRadius: 8,
-      padding: 16,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: theme.border,
-    },
-    secondaryBtnText: {
-      color: theme.textSecondary,
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    disabledBtn: {
-      opacity: 0.5,
+    themeToggleText: {
+      fontSize: 14,
+      fontFamily: 'ShortStack_400Regular',
     },
   });

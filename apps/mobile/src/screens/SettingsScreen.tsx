@@ -5,94 +5,53 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Switch,
   Alert,
   Share,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import * as DocumentPicker from 'expo-document-picker';
-import { Ionicons } from '@expo/vector-icons';
-import { useAuth, useData, useTheme } from '../hooks/useStore';
-import { API_URL } from '../config';
-import { Theme } from '../store/atoms';
+import { useAuth } from '../context/AuthContext';
+import { useData } from '../context/DataContext';
+import { useTheme } from '../context/ThemeContext';
 
 export default function SettingsScreen() {
   const { uuid, clearUUID } = useAuth();
-  const { data, importData } = useData();
-  const { theme, mode, toggleTheme } = useTheme();
-  const styles = createStyles(theme);
+  const { data } = useData();
+  const { theme, isDark, toggleTheme } = useTheme();
 
   const [showUUID, setShowUUID] = useState(false);
-  const [importStatus, setImportStatus] = useState<{
-    type: 'success' | 'error';
-    message: string;
-  } | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const handleCopyUUID = async () => {
     if (uuid) {
       await Clipboard.setStringAsync(uuid);
-      Alert.alert('Copied!', 'Your code has been copied to clipboard');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
-  const handleExportData = async () => {
+  const handleExport = async () => {
     if (!data) return;
 
+    const exportData = {
+      ...data,
+      exportedAt: new Date().toISOString(),
+    };
+
     try {
-      const jsonData = JSON.stringify(data, null, 2);
       await Share.share({
-        message: jsonData,
-        title: 'Eisenhower Data Export',
+        message: JSON.stringify(exportData, null, 2),
+        title: 'NoteGrid Data Export',
       });
     } catch (error) {
       Alert.alert('Error', 'Failed to export data');
     }
   };
 
-  const handleImportData = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/json',
-        copyToCacheDirectory: true,
-      });
-
-      if (result.canceled) {
-        return;
-      }
-
-      if (result.assets && result.assets.length > 0) {
-        const file = result.assets[0];
-        const response = await fetch(file.uri);
-        const text = await response.text();
-        const importResult = importData(text);
-
-        if (importResult.success) {
-          setImportStatus({
-            type: 'success',
-            message: `Imported ${importResult.tasksImported} tasks and ${importResult.linksImported} links successfully!`,
-          });
-          setTimeout(() => setImportStatus(null), 3000);
-        } else {
-          setImportStatus({
-            type: 'error',
-            message: importResult.error || 'Import failed',
-          });
-          setTimeout(() => setImportStatus(null), 3000);
-        }
-      }
-    } catch (error) {
-      setImportStatus({
-        type: 'error',
-        message: 'Failed to read file',
-      });
-      setTimeout(() => setImportStatus(null), 3000);
-    }
-  };
-
-  const handleDeleteAccount = () => {
+  const handleDeleteAccount = async () => {
     Alert.alert(
       'Delete Account',
-      'Are you sure you want to delete your account? This will permanently delete all your data and cannot be undone.',
+      'Are you sure? This will permanently delete all your data.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -100,17 +59,9 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              if (uuid) {
-                await fetch(`${API_URL}/api/data`, {
-                  method: 'DELETE',
-                  headers: {
-                    Authorization: `Bearer ${uuid}`,
-                  },
-                });
-              }
               await clearUUID();
             } catch (error) {
-              Alert.alert('Error', 'Failed to delete account');
+              console.error('Failed to delete account:', error);
             }
           },
         },
@@ -119,255 +70,215 @@ export default function SettingsScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout? Make sure you have saved your code safely!',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: () => clearUUID(),
-        },
-      ]
-    );
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Logout', onPress: () => clearUUID() },
+    ]);
   };
 
+  const maskedUUID = uuid ? uuid.replace(/./g, '*') : '';
+
+  const styles = createStyles(theme);
+
   return (
-    <ScrollView style={styles.container}>
-      {/* Theme Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Appearance</Text>
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Ionicons
-                name={mode === 'dark' ? 'moon' : 'sunny'}
-                size={24}
-                color={theme.text}
-              />
-              <Text style={styles.rowText}>Dark Mode</Text>
-            </View>
-            <Switch
-              value={mode === 'dark'}
-              onValueChange={toggleTheme}
-              trackColor={{ false: theme.border, true: theme.primary }}
-            />
-          </View>
-        </View>
+    <ScrollView style={[styles.container, { backgroundColor: theme.bg }]}>
+      <View style={styles.header}>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Settings</Text>
       </View>
 
-      {/* Account Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Ionicons name="key-outline" size={24} color={theme.text} />
-              <Text style={styles.rowText}>Your Secret Code</Text>
-            </View>
-            <TouchableOpacity onPress={() => setShowUUID(!showUUID)}>
-              <Ionicons
-                name={showUUID ? 'eye-off-outline' : 'eye-outline'}
-                size={24}
-                color={theme.primary}
-              />
-            </TouchableOpacity>
-          </View>
+      <View style={styles.content}>
+        {/* Secret Code Section */}
+        <View style={[styles.section, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Your Secret Code</Text>
+          <Text style={[styles.sectionDesc, { color: theme.muted }]}>
+            This is your unique identifier. Keep it safe - it's the only way to access your data.
+          </Text>
 
-          {showUUID && uuid && (
-            <View style={styles.codeContainer}>
-              <Text style={styles.codeText} selectable>
-                {uuid}
-              </Text>
-              <TouchableOpacity style={styles.copyBtn} onPress={handleCopyUUID}>
-                <Ionicons name="copy-outline" size={18} color="#fff" />
+          <View style={[styles.uuidDisplay, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+            <Text style={[styles.uuidText, { color: theme.text }]} selectable>
+              {showUUID ? uuid : maskedUUID}
+            </Text>
+            <View style={styles.uuidActions}>
+              <TouchableOpacity style={styles.iconBtn} onPress={() => setShowUUID(!showUUID)}>
+                <Text style={[styles.iconBtnText, { color: theme.muted }]}>
+                  {showUUID ? 'Hide' : 'Show'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.iconBtn} onPress={handleCopyUUID}>
+                <Text style={[styles.iconBtnText, { color: theme.muted }]}>
+                  {copied ? 'Copied!' : 'Copy'}
+                </Text>
               </TouchableOpacity>
             </View>
-          )}
-
-          <TouchableOpacity style={styles.actionRow} onPress={handleExportData}>
-            <Ionicons name="download-outline" size={24} color={theme.text} />
-            <Text style={styles.rowText}>Export Data</Text>
-            <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionRow} onPress={handleImportData}>
-            <Ionicons name="upload-outline" size={24} color={theme.text} />
-            <Text style={styles.rowText}>Import Data</Text>
-            <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
-          </TouchableOpacity>
-
-          {importStatus && (
-            <View
-              style={[
-                styles.statusMessage,
-                importStatus.type === 'success'
-                  ? styles.statusSuccess
-                  : styles.statusError,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.statusText,
-                  importStatus.type === 'success'
-                    ? styles.statusTextSuccess
-                    : styles.statusTextError,
-                ]}
-              >
-                {importStatus.message}
-              </Text>
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* Danger Zone */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Danger Zone</Text>
-        <View style={styles.card}>
-          <TouchableOpacity style={styles.actionRow} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={24} color={theme.danger} />
-            <Text style={[styles.rowText, { color: theme.danger }]}>Logout</Text>
-            <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionRow} onPress={handleDeleteAccount}>
-            <Ionicons name="trash-outline" size={24} color={theme.danger} />
-            <Text style={[styles.rowText, { color: theme.danger }]}>
-              Delete Account
-            </Text>
-            <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* App Info */}
-      <View style={styles.section}>
-        <View style={styles.appInfo}>
-          <View style={styles.footerContainer}>
-            <Text style={styles.footerText}>Made with </Text>
-            <Text style={styles.heart}>❤️</Text>
-            <Text style={styles.footerText}> by </Text>
-            <Text style={styles.footerLink}>try3d</Text>
           </View>
+        </View>
+
+        {/* Theme Section */}
+        <View style={[styles.section, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Appearance</Text>
+          <TouchableOpacity
+            style={[styles.settingsBtn, { borderColor: theme.border }]}
+            onPress={toggleTheme}
+          >
+            <Text style={[styles.settingsBtnText, { color: theme.text }]}>
+              {isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Export Section */}
+        <View style={[styles.section, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Export Data</Text>
+          <Text style={[styles.sectionDesc, { color: theme.muted }]}>
+            Download all your tasks and links as a JSON file for backup.
+          </Text>
+          <TouchableOpacity
+            style={[styles.settingsBtn, { borderColor: theme.border }]}
+            onPress={handleExport}
+          >
+            <Text style={[styles.settingsBtnText, { color: theme.text }]}>Export as JSON</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Danger Zone */}
+        <View
+          style={[styles.section, styles.dangerSection, { backgroundColor: theme.card, borderColor: theme.danger }]}
+        >
+          <Text style={[styles.sectionTitle, { color: theme.danger }]}>Danger Zone</Text>
+          <Text style={[styles.sectionDesc, { color: theme.muted }]}>
+            Permanently delete your account and all associated data. This action cannot be undone.
+          </Text>
+          <TouchableOpacity
+            style={[styles.dangerBtn, { borderColor: theme.danger, backgroundColor: theme.danger }]}
+            onPress={handleDeleteAccount}
+          >
+            <Text style={styles.dangerBtnText}>Delete Account</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Logout */}
+        <TouchableOpacity
+          style={[styles.logoutBtn, { borderColor: theme.border }]}
+          onPress={handleLogout}
+        >
+          <Text style={[styles.logoutBtnText, { color: theme.blue }]}>Logout</Text>
+        </TouchableOpacity>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={[styles.footerText, { color: theme.muted }]}>
+            {data?.tasks.length || 0} tasks, {data?.links.length || 0} links
+          </Text>
+          <Text style={[styles.footerText, { color: theme.muted, marginTop: 8 }]}>
+            Made with love by try3d
+          </Text>
         </View>
       </View>
     </ScrollView>
   );
 }
 
-const createStyles = (theme: Theme) =>
+const createStyles = (theme: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: theme.background,
+    },
+    header: {
+      paddingHorizontal: 20,
+      paddingTop: 60,
+      paddingBottom: 16,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontFamily: 'ShortStack_400Regular',
+    },
+    content: {
+      padding: 20,
+      paddingTop: 0,
     },
     section: {
-      paddingHorizontal: 16,
-      marginTop: 24,
+      borderWidth: 2,
+      borderRadius: 2,
+      padding: 20,
+      marginBottom: 20,
     },
+    dangerSection: {},
     sectionTitle: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: theme.textMuted,
+      fontSize: 18,
+      fontFamily: 'ShortStack_400Regular',
       marginBottom: 8,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
     },
-    card: {
-      backgroundColor: theme.card,
-      borderRadius: 12,
-      overflow: 'hidden',
+    sectionDesc: {
+      fontSize: 14,
+      fontFamily: 'ShortStack_400Regular',
+      lineHeight: 20,
+      marginBottom: 16,
     },
-    row: {
+    uuidDisplay: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.borderLight,
+      borderWidth: 2,
+      borderRadius: 2,
+      padding: 14,
     },
-    rowLeft: {
+    uuidText: {
+      flex: 1,
+      fontSize: 11,
+      fontFamily: 'monospace',
+      letterSpacing: 1,
+    },
+    uuidActions: {
       flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-    },
-    rowText: {
-      fontSize: 16,
-      color: theme.text,
-    },
-    actionRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: 16,
-      gap: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.borderLight,
-    },
-    codeContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: theme.inputBg,
-      margin: 12,
-      marginTop: 0,
-      padding: 12,
-      borderRadius: 8,
       gap: 8,
     },
-    codeText: {
-      flex: 1,
-      fontFamily: 'monospace',
-      fontSize: 11,
-      color: theme.text,
+    iconBtn: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
     },
-    copyBtn: {
-      backgroundColor: theme.primary,
-      padding: 8,
-      borderRadius: 6,
+    iconBtnText: {
+      fontSize: 12,
+      fontFamily: 'ShortStack_400Regular',
     },
-    statusMessage: {
-      margin: 12,
-      marginTop: 0,
-      padding: 12,
-      borderRadius: 8,
-    },
-    statusSuccess: {
-      backgroundColor: '#dcfce7',
-    },
-    statusError: {
-      backgroundColor: '#fee2e2',
-    },
-    statusText: {
-      fontSize: 14,
-      fontWeight: '500',
-    },
-    statusTextSuccess: {
-      color: '#166534',
-    },
-    statusTextError: {
-      color: '#991b1b',
-    },
-    appInfo: {
+    settingsBtn: {
+      padding: 14,
+      borderWidth: 2,
+      borderRadius: 2,
       alignItems: 'center',
-      paddingVertical: 32,
     },
-    footerContainer: {
-      flexDirection: 'row',
+    settingsBtnText: {
+      fontSize: 16,
+      fontFamily: 'ShortStack_400Regular',
+    },
+    dangerBtn: {
+      padding: 14,
+      borderWidth: 2,
+      borderRadius: 2,
       alignItems: 'center',
-      justifyContent: 'center',
+    },
+    dangerBtnText: {
+      color: '#ffffff',
+      fontSize: 16,
+      fontFamily: 'ShortStack_400Regular',
+      fontWeight: '600',
+    },
+    logoutBtn: {
+      padding: 14,
+      borderWidth: 2,
+      borderRadius: 2,
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    logoutBtnText: {
+      fontSize: 16,
+      fontFamily: 'ShortStack_400Regular',
+      fontWeight: '600',
+    },
+    footer: {
+      alignItems: 'center',
+      paddingVertical: 30,
     },
     footerText: {
       fontSize: 14,
-      color: theme.textSecondary,
-    },
-    heart: {
-      fontSize: 14,
-      marginHorizontal: 2,
-    },
-    footerLink: {
-      fontSize: 14,
-      color: theme.primary,
-      fontWeight: '600',
+      fontFamily: 'ShortStack_400Regular',
     },
   });

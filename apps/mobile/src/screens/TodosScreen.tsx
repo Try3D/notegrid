@@ -1,503 +1,519 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
-  TextInput,
-  Modal,
   ScrollView,
-  Switch,
-  KeyboardAvoidingView,
-  Platform,
+  Modal,
+  Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useData, useTheme } from '../hooks/useStore';
-import { COLORS, COLOR_NAMES, QUADRANT_LABELS } from '../config';
-import { Task, Theme } from '../store/atoms';
-
-const BADGE_COLORS: Record<string, string> = {
-  do: '#fee2e2',
-  decide: '#dcfce7',
-  delegate: '#ffedd5',
-  delete: '#dbeafe',
-};
+import { useData } from '../context/DataContext';
+import { useTheme } from '../context/ThemeContext';
+import { Task, COLORS, COLOR_NAMES, QUADRANT_LABELS } from '../types';
 
 export default function TodosScreen() {
   const { tasks, addTask, updateTask, deleteTask, loading } = useData();
   const { theme } = useTheme();
-  const styles = createStyles(theme);
-
   const [activeTask, setActiveTask] = useState<Task | null>(null);
-  const [showDrawer, setShowDrawer] = useState(false);
+  const [drawerVisible, setDrawerVisible] = useState(false);
 
-  const [formTitle, setFormTitle] = useState('');
-  const [formNote, setFormNote] = useState('');
+  // Local state for drawer form
+  const [title, setTitle] = useState('');
+  const [note, setNote] = useState('');
+  const [tags, setTags] = useState('');
+  const [quadrant, setQuadrant] = useState<string>('');
+  const [color, setColor] = useState<string>(COLORS[0]);
 
-  useEffect(() => {
-    if (activeTask) {
-      setFormTitle(activeTask.title);
-      setFormNote(activeTask.note);
-    }
-  }, [activeTask?.id]);
-
-  const grouped = tasks.reduce((acc, task) => {
-    if (!acc[task.color]) acc[task.color] = [];
-    acc[task.color].push(task);
-    return acc;
-  }, {} as Record<string, Task[]>);
+  const grouped = tasks.reduce(
+    (acc, task) => {
+      if (!acc[task.color]) acc[task.color] = [];
+      acc[task.color].push(task);
+      return acc;
+    },
+    {} as Record<string, Task[]>
+  );
 
   const sortedColors = COLORS.filter((c) => grouped[c]);
 
-  const handleAddTask = () => {
-    const newTask = addTask({
-      title: '',
-      note: '',
-      tags: [],
-      color: COLORS[0],
-      q: null,
-      completed: false,
-    });
-    setActiveTask(newTask);
-    setShowDrawer(true);
+  const openDrawer = (task: Task | null) => {
+    if (task) {
+      setActiveTask(task);
+      setTitle(task.title);
+      setNote(task.note);
+      setTags(task.tags.join(', '));
+      setQuadrant(task.q || '');
+      setColor(task.color);
+    } else {
+      // New task
+      const newTask = addTask({
+        title: '',
+        note: '',
+        tags: [],
+        color: COLORS[0],
+        q: null,
+        completed: false,
+      });
+      setActiveTask(newTask);
+      setTitle('');
+      setNote('');
+      setTags('');
+      setQuadrant('');
+      setColor(COLORS[0]);
+    }
+    setDrawerVisible(true);
+  };
+
+  const closeDrawer = () => {
+    setDrawerVisible(false);
+    setActiveTask(null);
+  };
+
+  const handleUpdate = (field: string, value: any) => {
+    if (!activeTask) return;
+
+    let updates: Partial<Task> = {};
+    switch (field) {
+      case 'title':
+        setTitle(value);
+        updates = { title: value };
+        break;
+      case 'note':
+        setNote(value);
+        updates = { note: value };
+        break;
+      case 'tags':
+        setTags(value);
+        updates = { tags: value.split(',').map((t: string) => t.trim()).filter(Boolean) };
+        break;
+      case 'quadrant':
+        setQuadrant(value);
+        updates = { q: value || null };
+        break;
+      case 'color':
+        setColor(value);
+        updates = { color: value };
+        break;
+    }
+    updateTask(activeTask.id, updates);
+  };
+
+  const handleDelete = () => {
+    if (!activeTask) return;
+    Alert.alert('Delete Task', 'Are you sure you want to delete this task?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteTask(activeTask.id);
+          closeDrawer();
+        },
+      },
+    ]);
   };
 
   const handleToggleComplete = (task: Task) => {
     updateTask(task.id, { completed: !task.completed });
   };
 
-  const handleUpdate = (updates: Partial<Task>) => {
-    if (activeTask) {
-      updateTask(activeTask.id, updates);
-      setActiveTask({ ...activeTask, ...updates });
-    }
-  };
-
-  const saveTextFields = () => {
-    if (activeTask) {
-      if (formTitle !== activeTask.title || formNote !== activeTask.note) {
-        updateTask(activeTask.id, { title: formTitle, note: formNote });
-        setActiveTask({ ...activeTask, title: formTitle, note: formNote });
-      }
-    }
-  };
-
-  const handleCloseDrawer = () => {
-    saveTextFields();
-    setShowDrawer(false);
-  };
-
-  const handleDelete = () => {
-    if (activeTask) {
-      deleteTask(activeTask.id);
-      setShowDrawer(false);
-      setActiveTask(null);
-    }
-  };
-
-  const renderTask = (task: Task) => (
-    <TouchableOpacity
-      key={task.id}
-      style={[styles.taskItem, task.completed && styles.taskCompleted]}
-      onPress={() => {
-        setActiveTask(task);
-        setShowDrawer(true);
-      }}
-    >
-      <TouchableOpacity
-        style={[styles.checkbox, task.completed && styles.checkboxChecked]}
-        onPress={() => handleToggleComplete(task)}
-      >
-        {task.completed && <Ionicons name="checkmark" size={16} color="#fff" />}
-      </TouchableOpacity>
-      <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]}>
-        {task.title || 'Untitled'}
-      </Text>
-      {task.q && (
-        <View style={[styles.quadrantBadge, { backgroundColor: BADGE_COLORS[task.q] }]}>
-          <Text style={styles.badgeText}>{QUADRANT_LABELS[task.q]}</Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
+  const styles = createStyles(theme);
 
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.loadingText}>Loading...</Text>
+      <View style={[styles.container, { backgroundColor: theme.bg }]}>
+        <View style={styles.header}>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>Todos</Text>
+        </View>
+        <View style={styles.emptyState}>
+          <Text style={[styles.emptyText, { color: theme.muted }]}>Loading...</Text>
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <ScrollView style={styles.scrollView}>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <View style={styles.header}>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Todos</Text>
+      </View>
+
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         {sortedColors.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No todos yet. Add one to get started!</Text>
+            <Text style={[styles.emptyText, { color: theme.muted }]}>
+              No todos yet. Add one to get started!
+            </Text>
           </View>
         ) : (
-          sortedColors.map((color) => (
-            <View key={color} style={styles.group}>
-              <View style={styles.groupHeader}>
-                <View style={[styles.colorDot, { backgroundColor: color }]} />
-                <Text style={styles.groupTitle}>{COLOR_NAMES[color] || 'Other'}</Text>
+          sortedColors.map((colorKey) => (
+            <View
+              key={colorKey}
+              style={[styles.group, { backgroundColor: theme.card, borderColor: theme.border }]}
+            >
+              <View style={[styles.groupHeader, { borderBottomColor: theme.border }]}>
+                <View style={[styles.groupDot, { backgroundColor: colorKey }]} />
+                <Text style={[styles.groupTitle, { color: theme.text }]}>
+                  {COLOR_NAMES[colorKey] || 'Other'}
+                </Text>
               </View>
-              {grouped[color].map((task) => renderTask(task))}
+              {grouped[colorKey].map((task, index) => (
+                <TouchableOpacity
+                  key={task.id}
+                  style={[
+                    styles.todoItem,
+                    index < grouped[colorKey].length - 1 && {
+                      borderBottomWidth: 1,
+                      borderBottomColor: theme.hover,
+                    },
+                  ]}
+                  onPress={() => openDrawer(task)}
+                >
+                  <TouchableOpacity
+                    style={[
+                      styles.checkbox,
+                      { borderColor: theme.border, backgroundColor: theme.card },
+                    ]}
+                    onPress={() => handleToggleComplete(task)}
+                  >
+                    {task.completed && <Text style={[styles.checkmark, { color: theme.text }]}>*</Text>}
+                  </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.todoTitle,
+                      { color: theme.text },
+                      task.completed && styles.completedText,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {task.title || 'Untitled'}
+                  </Text>
+                  {task.q && (
+                    <View style={[styles.badge, { backgroundColor: getBadgeColor(task.q) }]}>
+                      <Text style={styles.badgeText}>{QUADRANT_LABELS[task.q]}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
             </View>
           ))
         )}
+
+        <TouchableOpacity
+          style={[styles.addButton, { borderColor: theme.border }]}
+          onPress={() => openDrawer(null)}
+        >
+          <Text style={[styles.addButtonText, { color: theme.muted }]}>+ Add Todo</Text>
+        </TouchableOpacity>
       </ScrollView>
 
-      <TouchableOpacity style={styles.addButton} onPress={handleAddTask}>
-        <Ionicons name="add" size={24} color="#fff" />
-        <Text style={styles.addButtonText}>Add Todo</Text>
-      </TouchableOpacity>
-
-      <Modal
-        visible={showDrawer}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={handleCloseDrawer}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={handleCloseDrawer}
-          />
-          <View style={styles.drawer}>
+      {/* Task Drawer Modal */}
+      <Modal visible={drawerVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.drawer, { backgroundColor: theme.card }]}>
             <View style={styles.drawerHeader}>
-              <Text style={styles.drawerTitle}>Edit Task</Text>
-              <TouchableOpacity onPress={handleCloseDrawer}>
-                <Ionicons name="close" size={24} color={theme.text} />
+              <Text style={[styles.drawerTitle, { color: theme.text }]}>Task Details</Text>
+              <TouchableOpacity onPress={closeDrawer}>
+                <Text style={[styles.closeButton, { color: theme.text }]}>✕</Text>
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.drawerContent} keyboardShouldPersistTaps="handled">
-              <Text style={styles.label}>Title</Text>
+            <ScrollView style={styles.drawerContent}>
               <TextInput
-                style={styles.input}
-                value={formTitle}
-                onChangeText={setFormTitle}
-                onBlur={saveTextFields}
-                placeholder="Task title"
-                placeholderTextColor={theme.textMuted}
-                returnKeyType="next"
+                style={[styles.input, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                placeholder="Title"
+                placeholderTextColor={theme.muted}
+                value={title}
+                onChangeText={(v) => handleUpdate('title', v)}
               />
 
-              <Text style={styles.label}>Note</Text>
               <TextInput
-                style={[styles.input, styles.textArea]}
-                value={formNote}
-                onChangeText={setFormNote}
-                onBlur={saveTextFields}
-                placeholder="Add notes..."
-                placeholderTextColor={theme.textMuted}
+                style={[styles.textArea, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                placeholder="Note"
+                placeholderTextColor={theme.muted}
+                value={note}
+                onChangeText={(v) => handleUpdate('note', v)}
                 multiline
                 numberOfLines={4}
               />
 
-              <Text style={styles.label}>Color</Text>
-              <View style={styles.colorPicker}>
-                {COLORS.map((color) => (
-                  <TouchableOpacity
-                    key={color}
-                    style={[
-                      styles.colorOption,
-                      { backgroundColor: color },
-                      activeTask?.color === color && styles.colorSelected,
-                    ]}
-                    onPress={() => handleUpdate({ color })}
-                  />
-                ))}
-              </View>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                placeholder="Tags (comma separated)"
+                placeholderTextColor={theme.muted}
+                value={tags}
+                onChangeText={(v) => handleUpdate('tags', v)}
+              />
 
-              <Text style={styles.label}>Quadrant</Text>
+              <Text style={[styles.label, { color: theme.muted }]}>Eisenhower Quadrant</Text>
               <View style={styles.quadrantPicker}>
-                {(['do', 'decide', 'delegate', 'delete', null] as const).map((q) => (
+                {[
+                  { value: '', label: 'Not assigned' },
+                  { value: 'do', label: 'Do First' },
+                  { value: 'decide', label: 'Schedule' },
+                  { value: 'delegate', label: 'Delegate' },
+                  { value: 'delete', label: 'Eliminate' },
+                ].map((q) => (
                   <TouchableOpacity
-                    key={q || 'none'}
+                    key={q.value}
                     style={[
                       styles.quadrantOption,
-                      activeTask?.q === q && styles.quadrantSelected,
+                      { borderColor: theme.border },
+                      quadrant === q.value && { backgroundColor: theme.blue, borderColor: theme.blue },
                     ]}
-                    onPress={() => handleUpdate({ q })}
+                    onPress={() => handleUpdate('quadrant', q.value)}
                   >
                     <Text
                       style={[
-                        styles.quadrantText,
-                        activeTask?.q === q && styles.quadrantTextSelected,
+                        styles.quadrantOptionText,
+                        { color: quadrant === q.value ? '#ffffff' : theme.text },
                       ]}
                     >
-                      {q ? QUADRANT_LABELS[q] : 'None'}
+                      {q.label}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <View style={styles.completedRow}>
-                <Text style={styles.label}>Completed</Text>
-                <Switch
-                  value={activeTask?.completed || false}
-                  onValueChange={(value) => handleUpdate({ completed: value })}
-                  trackColor={{ false: theme.border, true: theme.primary }}
-                />
+              <Text style={[styles.label, { color: theme.muted }]}>Color</Text>
+              <View style={styles.colorPicker}>
+                {COLORS.map((c) => (
+                  <TouchableOpacity
+                    key={c}
+                    style={[
+                      styles.colorDot,
+                      { backgroundColor: c, borderColor: theme.border },
+                      color === c && { borderColor: theme.text, borderWidth: 3 },
+                    ]}
+                    onPress={() => handleUpdate('color', c)}
+                  />
+                ))}
               </View>
 
-              <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-                <Ionicons name="trash-outline" size={20} color={theme.danger} />
-                <Text style={styles.deleteText}>Delete Task</Text>
+              <TouchableOpacity
+                style={[styles.deleteButton, { borderColor: theme.danger, backgroundColor: theme.danger }]}
+                onPress={handleDelete}
+              >
+                <Text style={styles.deleteButtonText}>Delete Task</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </View>
   );
 }
 
-const createStyles = (theme: Theme) =>
+function getBadgeColor(q: string): string {
+  switch (q) {
+    case 'do':
+      return '#ef4444';
+    case 'decide':
+      return '#22c55e';
+    case 'delegate':
+      return '#f97316';
+    case 'delete':
+      return '#3b82f6';
+    default:
+      return '#6b7280';
+  }
+}
+
+const createStyles = (theme: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: theme.background,
     },
-    scrollView: {
+    header: {
+      paddingHorizontal: 20,
+      paddingTop: 60,
+      paddingBottom: 16,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontFamily: 'ShortStack_400Regular',
+    },
+    content: {
       flex: 1,
-      padding: 16,
     },
-    centered: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: theme.background,
-    },
-    loadingText: {
-      color: theme.textSecondary,
+    contentContainer: {
+      padding: 20,
+      paddingTop: 0,
     },
     emptyState: {
-      padding: 32,
+      padding: 50,
       alignItems: 'center',
     },
     emptyText: {
-      color: theme.textSecondary,
       fontSize: 16,
+      fontFamily: 'ShortStack_400Regular',
+      textAlign: 'center',
     },
     group: {
-      marginBottom: 24,
+      borderWidth: 2,
+      borderRadius: 2,
+      marginBottom: 20,
     },
     groupHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 12,
+      padding: 12,
+      paddingHorizontal: 16,
+      borderBottomWidth: 2,
     },
-    colorDot: {
-      width: 12,
-      height: 12,
-      borderRadius: 6,
-      marginRight: 8,
+    groupDot: {
+      width: 14,
+      height: 14,
+      borderRadius: 7,
+      marginRight: 10,
     },
     groupTitle: {
       fontSize: 16,
+      fontFamily: 'ShortStack_400Regular',
       fontWeight: '600',
-      color: theme.text,
     },
-    taskItem: {
+    todoItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: theme.card,
-      padding: 16,
-      borderRadius: 8,
-      marginBottom: 8,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
-      elevation: 1,
-    },
-    taskCompleted: {
-      opacity: 0.6,
+      padding: 12,
+      paddingHorizontal: 16,
     },
     checkbox: {
-      width: 24,
-      height: 24,
-      borderRadius: 4,
+      width: 22,
+      height: 22,
       borderWidth: 2,
-      borderColor: theme.border,
+      borderRadius: 2,
       marginRight: 12,
-      justifyContent: 'center',
       alignItems: 'center',
+      justifyContent: 'center',
     },
-    checkboxChecked: {
-      backgroundColor: theme.primary,
-      borderColor: theme.primary,
+    checkmark: {
+      fontSize: 16,
+      fontFamily: 'ShortStack_400Regular',
     },
-    taskTitle: {
+    todoTitle: {
       flex: 1,
       fontSize: 16,
-      color: theme.text,
+      fontFamily: 'ShortStack_400Regular',
     },
-    taskTitleCompleted: {
+    completedText: {
       textDecorationLine: 'line-through',
-      color: theme.textMuted,
+      opacity: 0.6,
     },
-    quadrantBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 4,
-    },
-    badge_do: {
-      backgroundColor: '#fee2e2',
-    },
-    badge_decide: {
-      backgroundColor: '#dcfce7',
-    },
-    badge_delegate: {
-      backgroundColor: '#ffedd5',
-    },
-    badge_delete: {
-      backgroundColor: '#dbeafe',
+    badge: {
+      paddingHorizontal: 6,
+      paddingVertical: 3,
+      borderRadius: 2,
+      marginLeft: 8,
     },
     badgeText: {
-      fontSize: 12,
-      fontWeight: '500',
-      color: '#333',
+      color: '#ffffff',
+      fontSize: 10,
+      fontFamily: 'ShortStack_400Regular',
     },
     addButton: {
-      position: 'absolute',
-      bottom: 24,
-      right: 24,
-      flexDirection: 'row',
+      padding: 14,
+      borderWidth: 2,
+      borderStyle: 'dashed',
+      borderRadius: 2,
       alignItems: 'center',
-      backgroundColor: theme.primary,
-      paddingVertical: 12,
-      paddingHorizontal: 20,
-      borderRadius: 24,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.2,
-      shadowRadius: 4,
-      elevation: 4,
     },
     addButtonText: {
-      color: '#fff',
       fontSize: 16,
-      fontWeight: '600',
-      marginLeft: 8,
+      fontFamily: 'ShortStack_400Regular',
     },
     modalOverlay: {
       flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
       justifyContent: 'flex-end',
     },
-    modalBackdrop: {
-      flex: 1,
-      backgroundColor: theme.overlay,
-    },
     drawer: {
-      backgroundColor: theme.card,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
       maxHeight: '80%',
     },
     drawerHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      padding: 16,
+      padding: 20,
       borderBottomWidth: 1,
-      borderBottomColor: theme.borderLight,
+      borderBottomColor: 'rgba(0,0,0,0.1)',
     },
     drawerTitle: {
       fontSize: 18,
-      fontWeight: '600',
-      color: theme.text,
+      fontFamily: 'ShortStack_400Regular',
+    },
+    closeButton: {
+      fontSize: 24,
+      padding: 4,
     },
     drawerContent: {
-      padding: 16,
-    },
-    label: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: theme.text,
-      marginBottom: 8,
-      marginTop: 16,
+      padding: 20,
     },
     input: {
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 8,
+      borderWidth: 2,
+      borderRadius: 2,
       padding: 12,
+      marginBottom: 12,
       fontSize: 16,
-      backgroundColor: theme.inputBg,
-      color: theme.text,
+      fontFamily: 'ShortStack_400Regular',
     },
     textArea: {
+      borderWidth: 2,
+      borderRadius: 2,
+      padding: 12,
+      marginBottom: 12,
+      fontSize: 16,
+      fontFamily: 'ShortStack_400Regular',
       minHeight: 100,
       textAlignVertical: 'top',
     },
-    colorPicker: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-    },
-    colorOption: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-    },
-    colorSelected: {
-      borderWidth: 3,
-      borderColor: theme.text,
+    label: {
+      fontSize: 14,
+      fontFamily: 'ShortStack_400Regular',
+      marginBottom: 8,
     },
     quadrantPicker: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: 8,
+      marginBottom: 16,
     },
     quadrantOption: {
       paddingHorizontal: 12,
       paddingVertical: 8,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.inputBg,
+      borderWidth: 2,
+      borderRadius: 2,
     },
-    quadrantSelected: {
-      backgroundColor: theme.primary,
-      borderColor: theme.primary,
+    quadrantOptionText: {
+      fontSize: 12,
+      fontFamily: 'ShortStack_400Regular',
     },
-    quadrantText: {
-      fontSize: 14,
-      color: theme.text,
-    },
-    quadrantTextSelected: {
-      color: '#fff',
-    },
-    completedRow: {
+    colorPicker: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginTop: 16,
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 24,
+    },
+    colorDot: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      borderWidth: 2,
     },
     deleteButton: {
-      flexDirection: 'row',
+      padding: 14,
+      borderWidth: 2,
+      borderRadius: 2,
       alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: 24,
-      marginBottom: 32,
-      padding: 12,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: theme.danger,
+      marginBottom: 40,
     },
-    deleteText: {
-      color: theme.danger,
+    deleteButtonText: {
+      color: '#ffffff',
       fontSize: 16,
+      fontFamily: 'ShortStack_400Regular',
       fontWeight: '600',
-      marginLeft: 8,
     },
   });

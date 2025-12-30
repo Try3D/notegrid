@@ -1,5 +1,8 @@
 # Eisenhower - Full-Stack Productivity App
 
+## IMPORTANT: Agent Rules
+**DO NOT run any commands (npm, expo, dev servers, etc.) until the user explicitly tells you to.** Only provide instructions and let the user execute commands themselves.
+
 ## Project Overview
 A full-stack productivity app with:
 - **Eisenhower Matrix** task manager (4-quadrant: Do, Schedule, Delegate, Eliminate)

@@ -1,13 +1,14 @@
 import React from 'react';
-import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, View } from 'react-native';
-import { Provider, useAtom } from 'jotai';
+import { StatusBar } from 'expo-status-bar';
+import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useFonts, ShortStack_400Regular } from '@expo-google-fonts/short-stack';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { useAuth, useTheme } from './src/hooks/useStore';
-import { themeModeAtom } from './src/store/atoms';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
+import { DataProvider } from './src/context/DataContext';
 
 import LoginScreen from './src/screens/LoginScreen';
 import TodosScreen from './src/screens/TodosScreen';
@@ -17,81 +18,134 @@ import SettingsScreen from './src/screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
 
-function MainTabs() {
-  const { theme, mode } = useTheme();
+function TabNavigator() {
+  const { theme } = useTheme();
 
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName: keyof typeof Ionicons.glyphMap = 'home';
-
-          if (route.name === 'Todos') {
-            iconName = focused ? 'checkbox' : 'checkbox-outline';
-          } else if (route.name === 'Matrix') {
-            iconName = focused ? 'grid' : 'grid-outline';
-          } else if (route.name === 'Links') {
-            iconName = focused ? 'link' : 'link-outline';
-          } else if (route.name === 'Settings') {
-            iconName = focused ? 'settings' : 'settings-outline';
-          }
-
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: theme.primary,
-        tabBarInactiveTintColor: theme.textMuted,
+      screenOptions={{
+        headerShown: false,
         tabBarStyle: {
-          backgroundColor: theme.tabBar,
-          borderTopColor: theme.tabBarBorder,
-        },
-        headerStyle: {
           backgroundColor: theme.card,
+          borderTopColor: theme.border,
+          borderTopWidth: 1,
         },
-        headerTintColor: theme.text,
-        headerTitleStyle: {
-          fontWeight: 'bold',
+        tabBarActiveTintColor: theme.blue,
+        tabBarInactiveTintColor: theme.muted,
+        tabBarLabelStyle: {
+          fontFamily: 'ShortStack_400Regular',
+          fontSize: 12,
         },
-      })}
+      }}
     >
-      <Tab.Screen name="Todos" component={TodosScreen} />
-      <Tab.Screen name="Matrix" component={MatrixScreen} />
-      <Tab.Screen name="Links" component={LinksScreen} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
+      <Tab.Screen
+        name="Todos"
+        component={TodosScreen}
+        options={{
+          tabBarLabel: 'Todos',
+        }}
+      />
+      <Tab.Screen
+        name="Matrix"
+        component={MatrixScreen}
+        options={{
+          tabBarLabel: 'Matrix',
+        }}
+      />
+      <Tab.Screen
+        name="Links"
+        component={LinksScreen}
+        options={{
+          tabBarLabel: 'Links',
+        }}
+      />
+      <Tab.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          tabBarLabel: 'Settings',
+        }}
+      />
     </Tab.Navigator>
   );
 }
 
 function AppContent() {
-  const { uuid, loading } = useAuth();
-  const { theme, mode } = useTheme();
+  const { uuid, loading: authLoading } = useAuth();
+  const { theme, isDark } = useTheme();
 
-  if (loading) {
+  if (authLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
-        <ActivityIndicator size="large" color={theme.primary} />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.bg }}>
+        <ActivityIndicator size="large" color={theme.blue} />
       </View>
     );
   }
 
-  const navTheme = mode === 'dark' ? DarkTheme : DefaultTheme;
+  if (!uuid) {
+    return <LoginScreen />;
+  }
 
   return (
-    <NavigationContainer theme={navTheme}>
-      {uuid ? <MainTabs /> : <LoginScreen />}
-    </NavigationContainer>
+    <DataProvider>
+      <NavigationContainer
+        theme={{
+          dark: isDark,
+          colors: {
+            primary: theme.blue,
+            background: theme.bg,
+            card: theme.card,
+            text: theme.text,
+            border: theme.border,
+            notification: theme.orange,
+          },
+          fonts: {
+            regular: {
+              fontFamily: 'ShortStack_400Regular',
+              fontWeight: 'normal' as const,
+            },
+            medium: {
+              fontFamily: 'ShortStack_400Regular',
+              fontWeight: '500' as const,
+            },
+            bold: {
+              fontFamily: 'ShortStack_400Regular',
+              fontWeight: 'bold' as const,
+            },
+            heavy: {
+              fontFamily: 'ShortStack_400Regular',
+              fontWeight: '900' as const,
+            },
+          },
+        }}
+      >
+        <TabNavigator />
+      </NavigationContainer>
+    </DataProvider>
   );
 }
 
 export default function App() {
-  return (
-    <Provider>
-      <AppContent />
-      <StatusBarWrapper />
-    </Provider>
-  );
-}
+  const [fontsLoaded] = useFonts({
+    ShortStack_400Regular,
+  });
 
-function StatusBarWrapper() {
-  const [mode] = useAtom(themeModeAtom);
-  return <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />;
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fdf7f1' }}>
+        <ActivityIndicator size="large" color="#3b82f6" />
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaProvider>
+      <AuthProvider>
+        <ThemeProvider>
+          <StatusBar style="auto" />
+          <AppContent />
+        </ThemeProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
+  );
 }

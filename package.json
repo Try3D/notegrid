@@ -12,7 +12,9 @@
     "dev:web": "turbo dev --filter=web",
     "dev:api": "turbo dev --filter=api",
     "build:web": "turbo build --filter=web",
-    "build:api": "turbo build --filter=api"
+    "build:api": "turbo build --filter=api",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "devDependencies": {
     "turbo": "^2.3.0",
@@ -22,5 +24,12 @@
   "overrides": {
     "react": "19.1.0",
     "react-dom": "19.1.0"
+  },
+  "version": "1.0.0",
+  "dependencies": {
+    "anser": "^2.3.5",
+    "expo": "~54.0.30",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
   }
 }

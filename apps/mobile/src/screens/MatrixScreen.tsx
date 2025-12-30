@@ -1,15 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  Modal,
+  TextInput,
+  Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useData, useTheme } from '../hooks/useStore';
-import { QUADRANT_LABELS } from '../config';
-import { Task, Theme } from '../store/atoms';
+import { useData } from '../context/DataContext';
+import { useTheme } from '../context/ThemeContext';
+import { Task, COLORS } from '../types';
 
 type Quadrant = 'do' | 'decide' | 'delegate' | 'delete' | 'unassigned';
 
@@ -21,9 +23,16 @@ const QUADRANTS: { id: Quadrant; title: string; subtitle: string; color: string 
 ];
 
 export default function MatrixScreen() {
-  const { tasks, updateTask, loading } = useData();
+  const { tasks, updateTask, deleteTask, loading } = useData();
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [drawerVisible, setDrawerVisible] = useState(false);
+
+  // Local state for drawer form
+  const [title, setTitle] = useState('');
+  const [note, setNote] = useState('');
+  const [tags, setTags] = useState('');
+  const [color, setColor] = useState<string>(COLORS[0]);
 
   const getTasksByQuadrant = (q: Quadrant) => {
     if (q === 'unassigned') {
@@ -32,209 +41,431 @@ export default function MatrixScreen() {
     return tasks.filter((t) => t.q === q);
   };
 
+  const openDrawer = (task: Task) => {
+    setActiveTask(task);
+    setTitle(task.title);
+    setNote(task.note);
+    setTags(task.tags.join(', '));
+    setColor(task.color);
+    setDrawerVisible(true);
+  };
+
+  const closeDrawer = () => {
+    setDrawerVisible(false);
+    setActiveTask(null);
+  };
+
+  const handleUpdate = (field: string, value: any) => {
+    if (!activeTask) return;
+
+    let updates: Partial<Task> = {};
+    switch (field) {
+      case 'title':
+        setTitle(value);
+        updates = { title: value };
+        break;
+      case 'note':
+        setNote(value);
+        updates = { note: value };
+        break;
+      case 'tags':
+        setTags(value);
+        updates = { tags: value.split(',').map((t: string) => t.trim()).filter(Boolean) };
+        break;
+      case 'color':
+        setColor(value);
+        updates = { color: value };
+        break;
+    }
+    updateTask(activeTask.id, updates);
+  };
+
+  const handleDelete = () => {
+    if (!activeTask) return;
+    Alert.alert('Delete Task', 'Are you sure you want to delete this task?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteTask(activeTask.id);
+          closeDrawer();
+        },
+      },
+    ]);
+  };
+
   const handleToggleComplete = (task: Task) => {
     updateTask(task.id, { completed: !task.completed });
   };
 
-  const handleMoveToQuadrant = (taskId: string, quadrant: Quadrant) => {
+  const handleMoveToQuadrant = (task: Task, quadrant: Quadrant) => {
     const newQ = quadrant === 'unassigned' ? null : quadrant;
-    updateTask(taskId, { q: newQ });
+    updateTask(task.id, { q: newQ });
   };
 
-  const renderTask = (task: Task, currentQuadrant: Quadrant) => (
-    <View key={task.id} style={[styles.taskCard, task.completed && styles.taskCompleted]}>
-      <TouchableOpacity
-        style={[styles.checkbox, task.completed && styles.checkboxChecked]}
-        onPress={() => handleToggleComplete(task)}
-      >
-        {task.completed && <Ionicons name="checkmark" size={14} color="#fff" />}
-      </TouchableOpacity>
-      <View style={styles.taskContent}>
-        <View style={styles.taskHeader}>
-          <View style={[styles.colorDot, { backgroundColor: task.color }]} />
-          <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]} numberOfLines={1}>
-            {task.title || 'Untitled'}
-          </Text>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.moveButtons}>
-          {currentQuadrant !== 'unassigned' && (
-            <TouchableOpacity
-              style={styles.moveBtn}
-              onPress={() => handleMoveToQuadrant(task.id, 'unassigned')}
-            >
-              <Text style={styles.moveBtnText}>Unassign</Text>
-            </TouchableOpacity>
-          )}
-          {QUADRANTS.filter((q) => q.id !== currentQuadrant).map((q) => (
-            <TouchableOpacity
-              key={q.id}
-              style={[styles.moveBtn, { borderColor: q.color }]}
-              onPress={() => handleMoveToQuadrant(task.id, q.id)}
-            >
-              <Text style={[styles.moveBtnText, { color: q.color }]}>{q.subtitle}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-    </View>
-  );
+  const styles = createStyles(theme);
 
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.loadingText}>Loading...</Text>
+      <View style={[styles.container, { backgroundColor: theme.bg }]}>
+        <View style={styles.header}>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>Eisenhower Matrix</Text>
+        </View>
+        <View style={styles.emptyState}>
+          <Text style={[styles.emptyText, { color: theme.muted }]}>Loading...</Text>
+        </View>
       </View>
     );
   }
 
+  const renderTask = (task: Task) => (
+    <TouchableOpacity
+      key={task.id}
+      style={[
+        styles.task,
+        { backgroundColor: theme.taskBg, borderColor: theme.border },
+        task.completed && styles.taskCompleted,
+      ]}
+      onPress={() => openDrawer(task)}
+    >
+      <TouchableOpacity
+        style={[styles.checkbox, { borderColor: theme.border, backgroundColor: theme.card }]}
+        onPress={() => handleToggleComplete(task)}
+      >
+        {task.completed && <Text style={[styles.checkmark, { color: theme.text }]}>*</Text>}
+      </TouchableOpacity>
+      <View style={[styles.taskColor, { backgroundColor: task.color }]} />
+      <Text
+        style={[styles.taskTitle, { color: theme.text }, task.completed && styles.completedText]}
+        numberOfLines={1}
+      >
+        {task.title || 'Untitled'}
+      </Text>
+    </TouchableOpacity>
+  );
+
   return (
-    <ScrollView style={styles.container}>
-      {/* Unassigned Section */}
-      <View style={styles.section}>
-        <View style={[styles.sectionHeader, { borderLeftColor: '#64748b' }]}>
-          <Text style={styles.sectionTitle}>Unassigned</Text>
-          <Text style={styles.sectionSubtitle}>Tap buttons to assign</Text>
-        </View>
-        <View style={styles.taskList}>
-          {getTasksByQuadrant('unassigned').length === 0 ? (
-            <Text style={styles.emptyText}>No unassigned tasks</Text>
-          ) : (
-            getTasksByQuadrant('unassigned').map((task) => renderTask(task, 'unassigned'))
-          )}
-        </View>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <View style={styles.header}>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Eisenhower Matrix</Text>
       </View>
 
-      {/* Quadrants */}
-      {QUADRANTS.map((quadrant) => (
-        <View key={quadrant.id} style={styles.section}>
-          <View style={[styles.sectionHeader, { borderLeftColor: quadrant.color }]}>
-            <Text style={styles.sectionTitle}>{quadrant.title}</Text>
-            <Text style={styles.sectionSubtitle}>{quadrant.subtitle}</Text>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+        {/* Unassigned Section */}
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <View style={[styles.cardHeader, { backgroundColor: theme.muted }]}>
+            <Text style={styles.cardTitle}>Unassigned</Text>
+            <Text style={styles.cardSubtitle}>Tap task to assign</Text>
           </View>
           <View style={styles.taskList}>
-            {getTasksByQuadrant(quadrant.id).length === 0 ? (
-              <Text style={styles.emptyText}>No tasks</Text>
+            {getTasksByQuadrant('unassigned').length === 0 ? (
+              <Text style={[styles.emptyCardText, { color: theme.muted }]}>No unassigned tasks</Text>
             ) : (
-              getTasksByQuadrant(quadrant.id).map((task) => renderTask(task, quadrant.id))
+              getTasksByQuadrant('unassigned').map(renderTask)
             )}
           </View>
         </View>
-      ))}
-    </ScrollView>
+
+        {/* Matrix Grid */}
+        {QUADRANTS.map((q) => (
+          <View
+            key={q.id}
+            style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+          >
+            <View style={[styles.cardHeader, { backgroundColor: q.color }]}>
+              <Text style={styles.cardTitle}>{q.title}</Text>
+              <Text style={styles.cardSubtitle}>{q.subtitle}</Text>
+            </View>
+            <View style={styles.taskList}>
+              {getTasksByQuadrant(q.id).length === 0 ? (
+                <Text style={[styles.emptyCardText, { color: theme.muted }]}>No tasks</Text>
+              ) : (
+                getTasksByQuadrant(q.id).map(renderTask)
+              )}
+            </View>
+          </View>
+        ))}
+      </ScrollView>
+
+      {/* Task Drawer Modal */}
+      <Modal visible={drawerVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.drawer, { backgroundColor: theme.card }]}>
+            <View style={styles.drawerHeader}>
+              <Text style={[styles.drawerTitle, { color: theme.text }]}>Task Details</Text>
+              <TouchableOpacity onPress={closeDrawer}>
+                <Text style={[styles.closeButton, { color: theme.text }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.drawerContent}>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                placeholder="Title"
+                placeholderTextColor={theme.muted}
+                value={title}
+                onChangeText={(v) => handleUpdate('title', v)}
+              />
+
+              <TextInput
+                style={[styles.textArea, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                placeholder="Note"
+                placeholderTextColor={theme.muted}
+                value={note}
+                onChangeText={(v) => handleUpdate('note', v)}
+                multiline
+                numberOfLines={4}
+              />
+
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                placeholder="Tags (comma separated)"
+                placeholderTextColor={theme.muted}
+                value={tags}
+                onChangeText={(v) => handleUpdate('tags', v)}
+              />
+
+              <Text style={[styles.label, { color: theme.muted }]}>Move to Quadrant</Text>
+              <View style={styles.quadrantButtons}>
+                <TouchableOpacity
+                  style={[styles.quadrantBtn, { backgroundColor: theme.muted }]}
+                  onPress={() => {
+                    if (activeTask) handleMoveToQuadrant(activeTask, 'unassigned');
+                  }}
+                >
+                  <Text style={styles.quadrantBtnText}>Unassigned</Text>
+                </TouchableOpacity>
+                {QUADRANTS.map((q) => (
+                  <TouchableOpacity
+                    key={q.id}
+                    style={[styles.quadrantBtn, { backgroundColor: q.color }]}
+                    onPress={() => {
+                      if (activeTask) handleMoveToQuadrant(activeTask, q.id);
+                    }}
+                  >
+                    <Text style={styles.quadrantBtnText}>{q.subtitle}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[styles.label, { color: theme.muted }]}>Color</Text>
+              <View style={styles.colorPicker}>
+                {COLORS.map((c) => (
+                  <TouchableOpacity
+                    key={c}
+                    style={[
+                      styles.colorDot,
+                      { backgroundColor: c, borderColor: theme.border },
+                      color === c && { borderColor: theme.text, borderWidth: 3 },
+                    ]}
+                    onPress={() => handleUpdate('color', c)}
+                  />
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={[styles.deleteButton, { borderColor: theme.danger, backgroundColor: theme.danger }]}
+                onPress={handleDelete}
+              >
+                <Text style={styles.deleteButtonText}>Delete Task</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
-const createStyles = (theme: Theme) =>
+const createStyles = (theme: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: theme.background,
-      padding: 16,
     },
-    centered: {
+    header: {
+      paddingHorizontal: 20,
+      paddingTop: 60,
+      paddingBottom: 16,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontFamily: 'ShortStack_400Regular',
+    },
+    content: {
       flex: 1,
-      justifyContent: 'center',
+    },
+    contentContainer: {
+      padding: 20,
+      paddingTop: 0,
+    },
+    emptyState: {
+      padding: 50,
       alignItems: 'center',
-      backgroundColor: theme.background,
     },
-    loadingText: {
-      color: theme.textSecondary,
+    emptyText: {
+      fontSize: 16,
+      fontFamily: 'ShortStack_400Regular',
+      textAlign: 'center',
     },
-    section: {
-      marginBottom: 20,
-      backgroundColor: theme.card,
-      borderRadius: 12,
-      overflow: 'hidden',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
-      elevation: 1,
+    card: {
+      borderWidth: 3,
+      borderRadius: 3,
+      marginBottom: 16,
     },
-    sectionHeader: {
-      padding: 12,
-      borderLeftWidth: 4,
-      backgroundColor: theme.inputBg,
+    cardHeader: {
+      padding: 14,
     },
-    sectionTitle: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: theme.text,
+    cardTitle: {
+      color: '#ffffff',
+      fontSize: 16,
+      fontFamily: 'ShortStack_400Regular',
     },
-    sectionSubtitle: {
+    cardSubtitle: {
+      color: 'rgba(255,255,255,0.9)',
       fontSize: 12,
-      color: theme.textSecondary,
+      fontFamily: 'ShortStack_400Regular',
       marginTop: 2,
     },
     taskList: {
       padding: 12,
+      minHeight: 60,
     },
-    emptyText: {
-      color: theme.textMuted,
+    emptyCardText: {
       fontSize: 14,
-      fontStyle: 'italic',
+      fontFamily: 'ShortStack_400Regular',
+      textAlign: 'center',
+      padding: 12,
     },
-    taskCard: {
+    task: {
       flexDirection: 'row',
-      alignItems: 'flex-start',
-      paddingVertical: 8,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.borderLight,
+      alignItems: 'center',
+      padding: 10,
+      borderWidth: 2,
+      borderRadius: 2,
+      marginBottom: 8,
     },
     taskCompleted: {
-      opacity: 0.5,
+      opacity: 0.6,
     },
     checkbox: {
-      width: 20,
-      height: 20,
-      borderRadius: 4,
+      width: 22,
+      height: 22,
       borderWidth: 2,
-      borderColor: theme.border,
+      borderRadius: 2,
       marginRight: 10,
-      marginTop: 2,
+      alignItems: 'center',
       justifyContent: 'center',
-      alignItems: 'center',
     },
-    checkboxChecked: {
-      backgroundColor: theme.primary,
-      borderColor: theme.primary,
+    checkmark: {
+      fontSize: 16,
+      fontFamily: 'ShortStack_400Regular',
     },
-    taskContent: {
-      flex: 1,
-    },
-    taskHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 6,
-    },
-    colorDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      marginRight: 8,
+    taskColor: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      marginRight: 10,
     },
     taskTitle: {
-      fontSize: 14,
-      color: theme.text,
       flex: 1,
+      fontSize: 14,
+      fontFamily: 'ShortStack_400Regular',
     },
-    taskTitleCompleted: {
+    completedText: {
       textDecorationLine: 'line-through',
-      color: theme.textMuted,
     },
-    moveButtons: {
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'flex-end',
+    },
+    drawer: {
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      maxHeight: '80%',
+    },
+    drawerHeader: {
       flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: 'rgba(0,0,0,0.1)',
     },
-    moveBtn: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 4,
-      borderWidth: 1,
-      borderColor: theme.border,
-      marginRight: 6,
+    drawerTitle: {
+      fontSize: 18,
+      fontFamily: 'ShortStack_400Regular',
     },
-    moveBtnText: {
-      fontSize: 11,
-      color: theme.textSecondary,
+    closeButton: {
+      fontSize: 24,
+      padding: 4,
+    },
+    drawerContent: {
+      padding: 20,
+    },
+    input: {
+      borderWidth: 2,
+      borderRadius: 2,
+      padding: 12,
+      marginBottom: 12,
+      fontSize: 16,
+      fontFamily: 'ShortStack_400Regular',
+    },
+    textArea: {
+      borderWidth: 2,
+      borderRadius: 2,
+      padding: 12,
+      marginBottom: 12,
+      fontSize: 16,
+      fontFamily: 'ShortStack_400Regular',
+      minHeight: 100,
+      textAlignVertical: 'top',
+    },
+    label: {
+      fontSize: 14,
+      fontFamily: 'ShortStack_400Regular',
+      marginBottom: 8,
+    },
+    quadrantButtons: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 16,
+    },
+    quadrantBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 2,
+    },
+    quadrantBtnText: {
+      color: '#ffffff',
+      fontSize: 12,
+      fontFamily: 'ShortStack_400Regular',
+    },
+    colorPicker: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 24,
+    },
+    colorDot: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      borderWidth: 2,
+    },
+    deleteButton: {
+      padding: 14,
+      borderWidth: 2,
+      borderRadius: 2,
+      alignItems: 'center',
+      marginBottom: 40,
+    },
+    deleteButtonText: {
+      color: '#ffffff',
+      fontSize: 16,
+      fontFamily: 'ShortStack_400Regular',
+      fontWeight: '600',
     },
   });
