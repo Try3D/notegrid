@@ -72,7 +72,9 @@ export const fetchDataAtom = atom(null, async (get, set) => {
       headers: {
         Authorization: `Bearer ${uuid}`,
         "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
       },
+      cache: "no-store",
     });
     const result = await response.json();
 
@@ -361,7 +363,9 @@ const fetchLatestData = async (uuid: string): Promise<UserData | null> => {
       headers: {
         Authorization: `Bearer ${uuid}`,
         "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
       },
+      cache: "no-store",
     });
     const result = await response.json();
     if (result.success && result.data) {
