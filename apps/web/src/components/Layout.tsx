@@ -1,8 +1,10 @@
-import { Outlet, NavLink } from "react-router-dom";
+import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 
 export default function Layout() {
   const { isDark, toggleTheme } = useTheme();
+  const location = useLocation();
+  const isKanban = location.pathname === "/kanban";
 
   return (
     <>
@@ -46,6 +48,26 @@ export default function Layout() {
             <rect x="13" y="3" width="8" height="8" rx="1" />
             <rect x="3" y="13" width="8" height="8" rx="1" />
             <rect x="13" y="13" width="8" height="8" rx="1" />
+          </svg>
+        </NavLink>
+        <NavLink
+          to="/kanban"
+          className={({ isActive }: { isActive: boolean }) =>
+            `sidebar-icon ${isActive ? "active" : ""}`
+          }
+          title="Kanban Board"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="24"
+            height="24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <rect x="3" y="3" width="5" height="18" rx="1" />
+            <rect x="10" y="3" width="5" height="12" rx="1" />
+            <rect x="17" y="3" width="5" height="15" rx="1" />
           </svg>
         </NavLink>
         <NavLink
@@ -126,7 +148,7 @@ export default function Layout() {
         </button>
       </nav>
 
-      <main className="main-content">
+      <main className={`main-content${isKanban ? " kanban-page" : ""}`}>
         <Outlet />
       </main>
     </>

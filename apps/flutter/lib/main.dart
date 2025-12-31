@@ -72,18 +72,43 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Initialize data provider with UUID
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final auth = context.read<AuthProvider>();
       final data = context.read<DataProvider>();
       data.setUUID(auth.uuid);
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final data = context.read<DataProvider>();
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // App came to foreground - start polling and fetch latest data
+        data.onAppResumed();
+        break;
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        // App went to background - stop polling
+        data.onAppPaused();
+        break;
+    }
   }
 
   @override
@@ -128,9 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
       width: 64,
       decoration: BoxDecoration(
         color: context.bgColor,
-        border: Border(
-          right: BorderSide(color: context.borderColor, width: 3),
-        ),
+        border: Border(right: BorderSide(color: context.borderColor, width: 3)),
       ),
       child: Column(
         children: [
@@ -185,9 +208,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       decoration: BoxDecoration(
         color: context.bgColor,
-        border: Border(
-          top: BorderSide(color: context.borderColor, width: 3),
-        ),
+        border: Border(top: BorderSide(color: context.borderColor, width: 3)),
       ),
       child: SafeArea(
         top: false,
@@ -215,16 +236,13 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: isSelected ? AppColors.blue : context.mutedColor,
-            ),
+            Icon(icon, color: isSelected ? AppColors.blue : context.mutedColor),
             const SizedBox(height: 4),
             Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: isSelected ? AppColors.blue : context.mutedColor,
-                  ),
+                color: isSelected ? AppColors.blue : context.mutedColor,
+              ),
             ),
           ],
         ),

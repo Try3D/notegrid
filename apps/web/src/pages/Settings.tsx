@@ -1,11 +1,13 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { useData } from "../context/DataContext";
+import { useAtomValue, useSetAtom } from "jotai";
+import { uuidAtom, userDataAtom, logoutAtom, importDataAtom } from "../store";
 
 export default function Settings() {
-  const { uuid, logout } = useAuth();
-  const { data, importData } = useData();
+  const uuid = useAtomValue(uuidAtom);
+  const data = useAtomValue(userDataAtom);
+  const logout = useSetAtom(logoutAtom);
+  const importData = useSetAtom(importDataAtom);
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 

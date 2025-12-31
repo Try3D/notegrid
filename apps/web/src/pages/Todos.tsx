@@ -1,5 +1,6 @@
-import { useState, useRef } from "react";
-import { useData } from "../context/DataContext";
+import { useState } from "react";
+import { useAtomValue, useSetAtom } from "jotai";
+import { tasksAtom, addTaskAtom, updateTaskAtom, deleteTaskAtom, moveTaskAtom, loadingAtom } from "../store";
 import TaskDrawer from "../components/TaskDrawer";
 import type { Task } from "@eisenhower/shared";
 
@@ -15,6 +16,7 @@ const COLORS = [
   "#64748b",
   "#0f172a",
 ];
+
 const COLOR_NAMES: Record<string, string> = {
   "#ef4444": "Red",
   "#22c55e": "Green",
@@ -36,11 +38,16 @@ const QUADRANT_LABELS: Record<string, string> = {
 };
 
 export default function Todos() {
-  const { tasks, addTask, updateTask, deleteTask, reorderTasks, loading } = useData();
+  const tasks = useAtomValue(tasksAtom);
+  const loading = useAtomValue(loadingAtom);
+  const addTask = useSetAtom(addTaskAtom);
+  const updateTask = useSetAtom(updateTaskAtom);
+  const deleteTask = useSetAtom(deleteTaskAtom);
+  const moveTask = useSetAtom(moveTaskAtom);
+
   const [activeTask, setActiveTask] = useState<Task | null>(null);
-  const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const dragCounter = useRef(0);
 
   const grouped = tasks.reduce(
     (acc, task) => {
@@ -60,9 +67,10 @@ export default function Todos() {
       tags: [],
       color: COLORS[0],
       q: null,
+      kanban: null,
       completed: false,
     });
-    setActiveTask(newTask);
+    if (newTask) setActiveTask(newTask);
   };
 
   const handleToggleComplete = (task: Task) => {
@@ -83,36 +91,21 @@ export default function Todos() {
     }
   };
 
-  // Drag and drop handlers
-  const handleDragStart = (e: React.DragEvent, task: Task) => {
-    setDraggedTask(task);
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    setDraggedTaskId(taskId);
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", task.id);
-    setTimeout(() => {
-      (e.target as HTMLElement).classList.add("dragging");
-    }, 0);
+    e.dataTransfer.setData("text/plain", taskId);
   };
 
-  const handleDragEnd = (e: React.DragEvent) => {
-    (e.target as HTMLElement).classList.remove("dragging");
-    setDraggedTask(null);
+  const handleDragEnd = () => {
+    setDraggedTaskId(null);
     setDragOverId(null);
-    dragCounter.current = 0;
   };
 
   const handleDragEnter = (e: React.DragEvent, id: string) => {
     e.preventDefault();
-    dragCounter.current++;
-    if (draggedTask && draggedTask.id !== id) {
+    if (draggedTaskId && draggedTaskId !== id) {
       setDragOverId(id);
-    }
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    dragCounter.current--;
-    if (dragCounter.current === 0) {
-      setDragOverId(null);
     }
   };
 
@@ -123,76 +116,22 @@ export default function Todos() {
 
   const handleDrop = (e: React.DragEvent, targetTask: Task) => {
     e.preventDefault();
-    dragCounter.current = 0;
-    
-    if (!draggedTask || draggedTask.id === targetTask.id) {
-      setDragOverId(null);
+    if (!draggedTaskId || draggedTaskId === targetTask.id) {
+      handleDragEnd();
       return;
     }
 
-    if (draggedTask.color !== targetTask.color) {
-      setDragOverId(null);
+    const draggedTask = tasks.find((t) => t.id === draggedTaskId);
+    if (!draggedTask || draggedTask.color !== targetTask.color) {
+      handleDragEnd();
       return;
     }
 
     const colorTasks = grouped[targetTask.color];
-    const draggedIndex = colorTasks.findIndex((t) => t.id === draggedTask.id);
     const targetIndex = colorTasks.findIndex((t) => t.id === targetTask.id);
 
-    if (draggedIndex === -1 || targetIndex === -1) {
-      setDragOverId(null);
-      return;
-    }
-
-    const newColorTasks = [...colorTasks];
-    newColorTasks.splice(draggedIndex, 1);
-    newColorTasks.splice(targetIndex, 0, draggedTask);
-
-    const newTaskIds: string[] = [];
-    for (const color of COLORS) {
-      if (color === targetTask.color) {
-        newTaskIds.push(...newColorTasks.map((t) => t.id));
-      } else if (grouped[color]) {
-        newTaskIds.push(...grouped[color].map((t) => t.id));
-      }
-    }
-
-    reorderTasks(newTaskIds);
-    setDragOverId(null);
-  };
-
-  const handleDropEnd = (e: React.DragEvent, color: string) => {
-    e.preventDefault();
-    dragCounter.current = 0;
-    
-    if (!draggedTask || draggedTask.color !== color) {
-      setDragOverId(null);
-      return;
-    }
-
-    const colorTasks = grouped[color];
-    const draggedIndex = colorTasks.findIndex((t) => t.id === draggedTask.id);
-
-    if (draggedIndex === -1 || draggedIndex === colorTasks.length - 1) {
-      setDragOverId(null);
-      return;
-    }
-
-    const newColorTasks = [...colorTasks];
-    newColorTasks.splice(draggedIndex, 1);
-    newColorTasks.push(draggedTask);
-
-    const newTaskIds: string[] = [];
-    for (const c of COLORS) {
-      if (c === color) {
-        newTaskIds.push(...newColorTasks.map((t) => t.id));
-      } else if (grouped[c]) {
-        newTaskIds.push(...grouped[c].map((t) => t.id));
-      }
-    }
-
-    reorderTasks(newTaskIds);
-    setDragOverId(null);
+    moveTask(draggedTaskId, {}, targetIndex, "color", targetTask.color);
+    handleDragEnd();
   };
 
   if (loading) {
@@ -232,13 +171,12 @@ export default function Todos() {
                   {grouped[color].map((task) => (
                     <div
                       key={task.id}
-                      className={`todo-item ${task.completed ? "completed" : ""} ${dragOverId === task.id ? "drag-over" : ""}`}
+                      className={`todo-item ${task.completed ? "completed" : ""} ${dragOverId === task.id ? "drag-over" : ""} ${draggedTaskId === task.id ? "dragging" : ""}`}
                       onClick={() => setActiveTask(task)}
                       draggable
-                      onDragStart={(e) => handleDragStart(e, task)}
+                      onDragStart={(e) => handleDragStart(e, task.id)}
                       onDragEnd={handleDragEnd}
                       onDragEnter={(e) => handleDragEnter(e, task.id)}
-                      onDragLeave={handleDragLeave}
                       onDragOver={handleDragOver}
                       onDrop={(e) => handleDrop(e, task)}
                     >
@@ -257,14 +195,6 @@ export default function Todos() {
                       )}
                     </div>
                   ))}
-                  {/* Drop zone for end of list */}
-                  <div
-                    className={`todo-drop-end ${dragOverId === `end-${color}` ? "drag-over" : ""}`}
-                    onDragEnter={(e) => handleDragEnter(e, `end-${color}`)}
-                    onDragLeave={handleDragLeave}
-                    onDragOver={handleDragOver}
-                    onDrop={(e) => handleDropEnd(e, color)}
-                  />
                 </div>
               </div>
             ))

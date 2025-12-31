@@ -5,6 +5,7 @@ export interface Task {
   tags: string[];
   color: string;
   q: "do" | "decide" | "delegate" | "delete" | null;
+  kanban: "backlog" | "todo" | "in-progress" | "done" | null;
   completed: boolean;
   createdAt: number;
   updatedAt: number;
@@ -76,6 +77,7 @@ export function createTask(partial: Partial<Task> = {}): Task {
     tags: [],
     color: COLORS[0],
     q: null,
+    kanban: null,
     completed: false,
     createdAt: now,
     updatedAt: now,

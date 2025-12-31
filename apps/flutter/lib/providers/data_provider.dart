@@ -13,6 +13,9 @@ class DataProvider extends ChangeNotifier {
   UserData? _data;
   bool _isLoading = true;
   Timer? _syncTimer;
+  Timer? _pollTimer;
+  bool _isPollingActive = false;
+  static const _pollInterval = Duration(seconds: 60);
 
   DataProvider(this._storage);
 
@@ -25,10 +28,63 @@ class DataProvider extends ChangeNotifier {
     _uuid = uuid;
     if (uuid != null) {
       _loadData();
+      startPolling();
     } else {
+      stopPolling();
       _data = null;
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Start polling for data updates (call when app is active/resumed)
+  void startPolling() {
+    if (_isPollingActive || _uuid == null) return;
+    _isPollingActive = true;
+
+    // Start periodic polling every 60 seconds
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(_pollInterval, (_) {
+      _fetchLatestData();
+    });
+  }
+
+  /// Stop polling (call when app goes to background)
+  void stopPolling() {
+    _isPollingActive = false;
+    _pollTimer?.cancel();
+    _pollTimer = null;
+  }
+
+  /// Called when app resumes from background - fetch latest data immediately
+  void onAppResumed() {
+    if (_uuid == null) return;
+    startPolling();
+    _fetchLatestData();
+  }
+
+  /// Called when app goes to background
+  void onAppPaused() {
+    stopPolling();
+  }
+
+  /// Fetch latest data from API and update only if remote is newer
+  Future<void> _fetchLatestData() async {
+    if (_uuid == null) return;
+
+    final api = ApiService(uuid: _uuid);
+    final apiData = await api.fetchData();
+
+    if (apiData != null) {
+      // Only update if remote data is newer than local data
+      final localUpdatedAt = _data?.updatedAt ?? 0;
+      final remoteUpdatedAt = apiData.updatedAt;
+
+      if (remoteUpdatedAt > localUpdatedAt) {
+        _data = apiData;
+        await _storage.setCachedData(apiData);
+        notifyListeners();
+      }
     }
   }
 
@@ -72,10 +128,10 @@ class DataProvider extends ChangeNotifier {
 
   Future<void> _syncToAPI() async {
     if (_uuid == null || _data == null) return;
-    
+
     _data!.updatedAt = DateTime.now().millisecondsSinceEpoch;
     await _storage.setCachedData(_data!);
-    
+
     final api = ApiService(uuid: _uuid);
     await api.saveData(_data!);
   }
@@ -109,7 +165,8 @@ class DataProvider extends ChangeNotifier {
     return task;
   }
 
-  void updateTask(String id, {
+  void updateTask(
+    String id, {
     String? title,
     String? note,
     List<String>? tags,
@@ -151,14 +208,14 @@ class DataProvider extends ChangeNotifier {
 
     final taskMap = {for (var t in _data!.tasks) t.id: t};
     final reordered = <Task>[];
-    
+
     for (final id in taskIds) {
       if (taskMap.containsKey(id)) {
         reordered.add(taskMap[id]!);
         taskMap.remove(id);
       }
     }
-    
+
     // Add any remaining tasks
     reordered.addAll(taskMap.values);
     _data!.tasks = reordered;
@@ -168,11 +225,7 @@ class DataProvider extends ChangeNotifier {
   }
 
   // Link operations
-  Link addLink({
-    required String url,
-    String title = '',
-    String favicon = '',
-  }) {
+  Link addLink({required String url, String title = '', String favicon = ''}) {
     final link = Link(
       id: const Uuid().v4(),
       url: url,
@@ -200,14 +253,14 @@ class DataProvider extends ChangeNotifier {
 
     final linkMap = {for (var l in _data!.links) l.id: l};
     final reordered = <Link>[];
-    
+
     for (final id in linkIds) {
       if (linkMap.containsKey(id)) {
         reordered.add(linkMap[id]!);
         linkMap.remove(id);
       }
     }
-    
+
     // Add any remaining links
     reordered.addAll(linkMap.values);
     _data!.links = reordered;
@@ -219,16 +272,13 @@ class DataProvider extends ChangeNotifier {
   // Import/Export
   Map<String, dynamic>? exportData() {
     if (_data == null) return null;
-    return {
-      ..._data!.toJson(),
-      'exportedAt': DateTime.now().toIso8601String(),
-    };
+    return {..._data!.toJson(), 'exportedAt': DateTime.now().toIso8601String()};
   }
 
   ImportResult importData(Map<String, dynamic> json) {
     try {
       final importedData = UserData.fromJson(json);
-      
+
       if (importedData.tasks.isEmpty && importedData.links.isEmpty) {
         return ImportResult(
           success: false,
@@ -257,6 +307,7 @@ class DataProvider extends ChangeNotifier {
   @override
   void dispose() {
     _syncTimer?.cancel();
+    _pollTimer?.cancel();
     super.dispose();
   }
 }

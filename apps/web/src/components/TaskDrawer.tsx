@@ -9,13 +9,15 @@ interface TaskDrawerProps {
   onUpdate: (updates: Partial<Task>) => void
   onDelete: () => void
   showQuadrant?: boolean
+  showKanban?: boolean
 }
 
-export default function TaskDrawer({ task, onClose, onUpdate, onDelete, showQuadrant = false }: TaskDrawerProps) {
+export default function TaskDrawer({ task, onClose, onUpdate, onDelete, showQuadrant = false, showKanban = false }: TaskDrawerProps) {
   const [title, setTitle] = useState('')
   const [note, setNote] = useState('')
   const [tags, setTags] = useState('')
   const [quadrant, setQuadrant] = useState<string>('')
+  const [kanban, setKanban] = useState<string>('')
   const [color, setColor] = useState(COLORS[0])
   const titleRef = useRef<HTMLInputElement>(null)
   const prevTaskIdRef = useRef<string | null>(null)
@@ -28,6 +30,7 @@ export default function TaskDrawer({ task, onClose, onUpdate, onDelete, showQuad
         setNote(task.note)
         setTags(task.tags.join(', '))
         setQuadrant(task.q || '')
+        setKanban(task.kanban || '')
         setColor(task.color)
         setTimeout(() => titleRef.current?.focus(), 50)
         prevTaskIdRef.current = task.id
@@ -51,7 +54,7 @@ export default function TaskDrawer({ task, onClose, onUpdate, onDelete, showQuad
     const handleClickOutside = (e: MouseEvent) => {
       const drawer = document.getElementById('drawer')
       const target = e.target as HTMLElement
-      if (task && drawer && !drawer.contains(target) && !target.closest('.todo-item') && !target.closest('.task') && !target.closest('.add-todo-btn')) {
+      if (task && drawer && !drawer.contains(target) && !target.closest('.todo-item') && !target.closest('.task') && !target.closest('.kanban-task') && !target.closest('.add-todo-btn') && !target.closest('.kanban-add-btn')) {
         onClose()
       }
     }
@@ -77,6 +80,11 @@ export default function TaskDrawer({ task, onClose, onUpdate, onDelete, showQuad
   const handleQuadrantChange = (value: string) => {
     setQuadrant(value)
     onUpdate({ q: value ? value as Task['q'] : null })
+  }
+
+  const handleKanbanChange = (value: string) => {
+    setKanban(value)
+    onUpdate({ kanban: value ? value as Task['kanban'] : null })
   }
 
   const handleColorChange = (newColor: string) => {
@@ -121,6 +129,19 @@ export default function TaskDrawer({ task, onClose, onUpdate, onDelete, showQuad
         </>
       )}
 
+      {showKanban && (
+        <>
+          <label className="quadrant-label">Kanban Status</label>
+          <select value={kanban} onChange={(e) => handleKanbanChange(e.target.value)}>
+            <option value="">Not assigned</option>
+            <option value="backlog">Backlog</option>
+            <option value="todo">To Do</option>
+            <option value="in-progress">In Progress</option>
+            <option value="done">Done</option>
+          </select>
+        </>
+      )}
+
       <label className="color-label">Color</label>
       <div className="color-picker">
         {COLORS.map(c => (
@@ -138,7 +159,11 @@ export default function TaskDrawer({ task, onClose, onUpdate, onDelete, showQuad
 
       <div className="drawer-footer">
         <button className="done-btn" onClick={onClose}>Done</button>
-        <button className="delete-btn" onClick={onDelete}>🗑</button>
+        <button className="delete-btn" onClick={onDelete}>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14M10 11v6M14 11v6" />
+          </svg>
+        </button>
       </div>
     </div>
   )

@@ -1,15 +1,20 @@
-import { useState, useRef } from "react";
-import { useData } from "../context/DataContext";
+import { useState } from "react";
+import { useAtomValue, useSetAtom } from "jotai";
+import { linksAtom, addLinkAtom, deleteLinkAtom, reorderLinksAtom, loadingAtom } from "../store";
 import type { Link } from "@eisenhower/shared";
 
 export default function Links() {
-  const { links, addLink, deleteLink, reorderLinks, loading } = useData();
+  const links = useAtomValue(linksAtom);
+  const loading = useAtomValue(loadingAtom);
+  const addLink = useSetAtom(addLinkAtom);
+  const deleteLink = useSetAtom(deleteLinkAtom);
+  const reorderLinks = useSetAtom(reorderLinksAtom);
+
   const [showModal, setShowModal] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [saving, setSaving] = useState(false);
-  const [draggedLink, setDraggedLink] = useState<Link | null>(null);
+  const [draggedLinkId, setDraggedLinkId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const dragCounter = useRef(0);
 
   const handleAddLink = async () => {
     const url = urlInput.trim();
@@ -35,10 +40,6 @@ export default function Links() {
     }
   };
 
-  const handleDelete = (id: string) => {
-    deleteLink(id);
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleAddLink();
@@ -47,36 +48,21 @@ export default function Links() {
     }
   };
 
-  // Drag and drop handlers
-  const handleDragStart = (e: React.DragEvent, link: Link) => {
-    setDraggedLink(link);
+  const handleDragStart = (e: React.DragEvent, linkId: string) => {
+    setDraggedLinkId(linkId);
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", link.id);
-    setTimeout(() => {
-      (e.target as HTMLElement).classList.add("dragging");
-    }, 0);
+    e.dataTransfer.setData("text/plain", linkId);
   };
 
-  const handleDragEnd = (e: React.DragEvent) => {
-    (e.target as HTMLElement).classList.remove("dragging");
-    setDraggedLink(null);
+  const handleDragEnd = () => {
+    setDraggedLinkId(null);
     setDragOverId(null);
-    dragCounter.current = 0;
   };
 
   const handleDragEnter = (e: React.DragEvent, id: string) => {
     e.preventDefault();
-    dragCounter.current++;
-    if (draggedLink && draggedLink.id !== id) {
+    if (draggedLinkId && draggedLinkId !== id) {
       setDragOverId(id);
-    }
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    dragCounter.current--;
-    if (dragCounter.current === 0) {
-      setDragOverId(null);
     }
   };
 
@@ -87,51 +73,27 @@ export default function Links() {
 
   const handleDrop = (e: React.DragEvent, targetLink: Link) => {
     e.preventDefault();
-    dragCounter.current = 0;
 
-    if (!draggedLink || draggedLink.id === targetLink.id) {
-      setDragOverId(null);
+    if (!draggedLinkId || draggedLinkId === targetLink.id) {
+      handleDragEnd();
       return;
     }
 
-    const draggedIndex = links.findIndex((l) => l.id === draggedLink.id);
+    const draggedIndex = links.findIndex((l) => l.id === draggedLinkId);
     const targetIndex = links.findIndex((l) => l.id === targetLink.id);
 
     if (draggedIndex === -1 || targetIndex === -1) {
-      setDragOverId(null);
+      handleDragEnd();
       return;
     }
 
+    const draggedLink = links[draggedIndex];
     const newLinks = [...links];
     newLinks.splice(draggedIndex, 1);
     newLinks.splice(targetIndex, 0, draggedLink);
 
     reorderLinks(newLinks.map((l) => l.id));
-    setDragOverId(null);
-  };
-
-  const handleDropEnd = (e: React.DragEvent) => {
-    e.preventDefault();
-    dragCounter.current = 0;
-
-    if (!draggedLink) {
-      setDragOverId(null);
-      return;
-    }
-
-    const draggedIndex = links.findIndex((l) => l.id === draggedLink.id);
-
-    if (draggedIndex === -1 || draggedIndex === links.length - 1) {
-      setDragOverId(null);
-      return;
-    }
-
-    const newLinks = [...links];
-    newLinks.splice(draggedIndex, 1);
-    newLinks.push(draggedLink);
-
-    reorderLinks(newLinks.map((l) => l.id));
-    setDragOverId(null);
+    handleDragEnd();
   };
 
   if (loading) {
@@ -161,12 +123,11 @@ export default function Links() {
             links.map((link) => (
               <div
                 key={link.id}
-                className={`link-item ${dragOverId === link.id ? "drag-over" : ""} ${draggedLink?.id === link.id ? "dragging" : ""}`}
+                className={`link-item ${dragOverId === link.id ? "drag-over" : ""} ${draggedLinkId === link.id ? "dragging" : ""}`}
                 draggable
-                onDragStart={(e) => handleDragStart(e, link)}
+                onDragStart={(e) => handleDragStart(e, link.id)}
                 onDragEnd={handleDragEnd}
                 onDragEnter={(e) => handleDragEnter(e, link.id)}
-                onDragLeave={handleDragLeave}
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDrop(e, link)}
               >
@@ -186,7 +147,7 @@ export default function Links() {
                 <div className="link-actions">
                   <button
                     className="delete-btn-small"
-                    onClick={() => handleDelete(link.id)}
+                    onClick={() => deleteLink(link.id)}
                   >
                     Delete
                   </button>
@@ -194,23 +155,12 @@ export default function Links() {
               </div>
             ))
           )}
-          {/* Drop zone for end of list */}
-          {links.length > 0 && (
-            <div
-              className={`link-drop-end ${dragOverId === "end" ? "drag-over" : ""}`}
-              onDragEnter={(e) => handleDragEnter(e, "end")}
-              onDragLeave={handleDragLeave}
-              onDragOver={handleDragOver}
-              onDrop={handleDropEnd}
-            />
-          )}
         </div>
         <button className="add-link-btn" onClick={() => setShowModal(true)}>
           + Add Link
         </button>
       </div>
 
-      {/* Modal */}
       <div
         className={`modal ${showModal ? "open" : ""}`}
         onClick={() => setShowModal(false)}

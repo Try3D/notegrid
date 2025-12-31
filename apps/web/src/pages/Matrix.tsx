@@ -1,11 +1,12 @@
-import { useState, useRef } from 'react'
-import { useData } from '../context/DataContext'
+import { useState } from 'react'
+import { useAtomValue, useSetAtom } from 'jotai'
+import { tasksAtom, updateTaskAtom, deleteTaskAtom, moveTaskAtom, loadingAtom } from '../store'
 import TaskDrawer from '../components/TaskDrawer'
 import type { Task } from '@eisenhower/shared'
 
-type Quadrant = 'do' | 'decide' | 'delegate' | 'delete' | 'unassigned'
+type Quadrant = 'do' | 'decide' | 'delegate' | 'delete' | null
 
-const QUADRANTS: { id: Quadrant; title: string; subtitle: string; color: string }[] = [
+const QUADRANTS: { id: Exclude<Quadrant, null>; title: string; subtitle: string; color: string }[] = [
   { id: 'do', title: 'Important & Urgent', subtitle: 'Do First', color: 'red' },
   { id: 'decide', title: 'Important & Not Urgent', subtitle: 'Schedule', color: 'green' },
   { id: 'delegate', title: 'Not Important & Urgent', subtitle: 'Delegate', color: 'orange' },
@@ -13,82 +14,52 @@ const QUADRANTS: { id: Quadrant; title: string; subtitle: string; color: string 
 ]
 
 export default function Matrix() {
-  const { tasks, updateTask, deleteTask, reorderTasks, loading } = useData()
+  const tasks = useAtomValue(tasksAtom)
+  const loading = useAtomValue(loadingAtom)
+  const updateTask = useSetAtom(updateTaskAtom)
+  const deleteTask = useSetAtom(deleteTaskAtom)
+  const moveTask = useSetAtom(moveTaskAtom)
+
   const [activeTask, setActiveTask] = useState<Task | null>(null)
-  const [draggedTask, setDraggedTask] = useState<Task | null>(null)
-  const [dragOverQuadrant, setDragOverQuadrant] = useState<Quadrant | null>(null)
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
+  const [dragOverQuadrant, setDragOverQuadrant] = useState<Quadrant | 'unassigned' | null>(null)
   const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null)
-  const [dragOverEnd, setDragOverEnd] = useState<Quadrant | null>(null)
-  const dragRef = useRef<string | null>(null)
-  const dragCounterRef = useRef<Record<string, number>>({})
 
-  const getTasksByQuadrant = (q: Quadrant) => {
-    if (q === 'unassigned') {
-      return tasks.filter(t => !t.q)
-    }
-    return tasks.filter(t => t.q === q)
-  }
+  const getTasksByQuadrant = (q: Quadrant) => tasks.filter(t => t.q === q)
 
-  const handleDragStart = (e: React.DragEvent, taskId: string, task: Task) => {
-    dragRef.current = taskId
-    setDraggedTask(task)
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    setDraggedTaskId(taskId)
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', taskId)
-    setTimeout(() => {
-      (e.target as HTMLElement).classList.add('dragging')
-    }, 0)
   }
 
-  const handleDragOver = (e: React.DragEvent, quadrant: Quadrant) => {
+  const handleDragEnd = () => {
+    setDraggedTaskId(null)
+    setDragOverQuadrant(null)
+    setDragOverTaskId(null)
+  }
+
+  const handleQuadrantDragOver = (e: React.DragEvent, quadrant: Quadrant | 'unassigned') => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     setDragOverQuadrant(quadrant)
   }
 
-  const handleDrop = (quadrant: Quadrant) => {
-    if (dragRef.current && draggedTask) {
-      const newQ = quadrant === 'unassigned' ? null : quadrant
-      const currentQ = draggedTask.q
-      
-      // If dropping on the same quadrant (not on a specific task), move to end
-      if ((currentQ === newQ) || (currentQ === null && quadrant === 'unassigned')) {
-        // Same quadrant, reorder to end
-        const quadrantTasks = getTasksByQuadrant(quadrant)
-        const otherTasks = tasks.filter(t => {
-          if (quadrant === 'unassigned') return t.q !== null
-          return t.q !== quadrant
-        })
-        const reorderedQuadrantTasks = quadrantTasks.filter(t => t.id !== draggedTask.id)
-        reorderedQuadrantTasks.push(draggedTask)
-        const newOrder = [...otherTasks, ...reorderedQuadrantTasks].map(t => t.id)
-        reorderTasks(newOrder)
-      } else {
-        // Different quadrant
-        updateTask(dragRef.current, { q: newQ })
-      }
-      
-      resetDragState()
-    }
+  const handleQuadrantDrop = (e: React.DragEvent, quadrant: Quadrant | 'unassigned') => {
+    e.preventDefault()
+    if (!draggedTaskId) return
+
+    const targetQ = quadrant === 'unassigned' ? null : quadrant
+    const quadrantTasks = getTasksByQuadrant(targetQ)
+    moveTask(draggedTaskId, { q: targetQ }, quadrantTasks.length, 'q', targetQ)
+    handleDragEnd()
   }
 
   const handleTaskDragEnter = (e: React.DragEvent, taskId: string) => {
     e.preventDefault()
     e.stopPropagation()
-    dragCounterRef.current[taskId] = (dragCounterRef.current[taskId] || 0) + 1
-    if (draggedTask && draggedTask.id !== taskId) {
+    if (draggedTaskId && draggedTaskId !== taskId) {
       setDragOverTaskId(taskId)
-    }
-  }
-
-  const handleTaskDragLeave = (e: React.DragEvent, taskId: string) => {
-    e.preventDefault()
-    e.stopPropagation()
-    dragCounterRef.current[taskId] = (dragCounterRef.current[taskId] || 0) - 1
-    if (dragCounterRef.current[taskId] <= 0) {
-      dragCounterRef.current[taskId] = 0
-      if (dragOverTaskId === taskId) {
-        setDragOverTaskId(null)
-      }
     }
   }
 
@@ -98,109 +69,21 @@ export default function Matrix() {
     e.dataTransfer.dropEffect = 'move'
   }
 
-  const handleTaskDrop = (e: React.DragEvent, targetTask: Task, quadrant: Quadrant) => {
+  const handleTaskDrop = (e: React.DragEvent, targetTask: Task) => {
     e.preventDefault()
     e.stopPropagation()
 
-    if (!draggedTask || draggedTask.id === targetTask.id) {
-      resetDragState()
+    if (!draggedTaskId || draggedTaskId === targetTask.id) {
+      handleDragEnd()
       return
     }
 
-    const targetQ = quadrant === 'unassigned' ? null : quadrant
-    const quadrantTasks = getTasksByQuadrant(quadrant)
-    const otherTasks = tasks.filter(t => {
-      if (quadrant === 'unassigned') return t.q !== null
-      return t.q !== quadrant
-    })
+    const targetQ = targetTask.q
+    const quadrantTasks = getTasksByQuadrant(targetQ)
+    const targetIndex = quadrantTasks.findIndex(t => t.id === targetTask.id)
 
-    // Remove dragged task from its current position
-    const filteredQuadrantTasks = quadrantTasks.filter(t => t.id !== draggedTask.id)
-    
-    // Find target index and insert
-    const targetIndex = filteredQuadrantTasks.findIndex(t => t.id === targetTask.id)
-    
-    // Update the dragged task's quadrant if needed
-    const updatedDraggedTask = { ...draggedTask, q: targetQ }
-    
-    // Insert at target position
-    filteredQuadrantTasks.splice(targetIndex, 0, updatedDraggedTask as Task)
-    
-    // Build new order
-    const newOrder = [...otherTasks, ...filteredQuadrantTasks].map(t => t.id)
-    
-    // Update quadrant if changed, then reorder
-    if (draggedTask.q !== targetQ) {
-      updateTask(draggedTask.id, { q: targetQ })
-    }
-    reorderTasks(newOrder)
-    
-    resetDragState()
-  }
-
-  const handleEndDragEnter = (e: React.DragEvent, quadrant: Quadrant) => {
-    e.preventDefault()
-    e.stopPropagation()
-    dragCounterRef.current[`end-${quadrant}`] = (dragCounterRef.current[`end-${quadrant}`] || 0) + 1
-    if (draggedTask) {
-      setDragOverEnd(quadrant)
-    }
-  }
-
-  const handleEndDragLeave = (e: React.DragEvent, quadrant: Quadrant) => {
-    e.preventDefault()
-    e.stopPropagation()
-    dragCounterRef.current[`end-${quadrant}`] = (dragCounterRef.current[`end-${quadrant}`] || 0) - 1
-    if (dragCounterRef.current[`end-${quadrant}`] <= 0) {
-      dragCounterRef.current[`end-${quadrant}`] = 0
-      if (dragOverEnd === quadrant) {
-        setDragOverEnd(null)
-      }
-    }
-  }
-
-  const handleEndDrop = (e: React.DragEvent, quadrant: Quadrant) => {
-    e.preventDefault()
-    e.stopPropagation()
-
-    if (!draggedTask) {
-      resetDragState()
-      return
-    }
-
-    const targetQ = quadrant === 'unassigned' ? null : quadrant
-    const quadrantTasks = getTasksByQuadrant(quadrant)
-    const otherTasks = tasks.filter(t => {
-      if (quadrant === 'unassigned') return t.q !== null
-      return t.q !== quadrant
-    })
-
-    // Remove dragged task and add to end
-    const filteredQuadrantTasks = quadrantTasks.filter(t => t.id !== draggedTask.id)
-    const updatedDraggedTask = { ...draggedTask, q: targetQ }
-    filteredQuadrantTasks.push(updatedDraggedTask as Task)
-
-    const newOrder = [...otherTasks, ...filteredQuadrantTasks].map(t => t.id)
-
-    if (draggedTask.q !== targetQ) {
-      updateTask(draggedTask.id, { q: targetQ })
-    }
-    reorderTasks(newOrder)
-
-    resetDragState()
-  }
-
-  const resetDragState = () => {
-    dragRef.current = null
-    setDraggedTask(null)
-    setDragOverQuadrant(null)
-    setDragOverTaskId(null)
-    setDragOverEnd(null)
-    dragCounterRef.current = {}
-  }
-
-  const handleDragEnd = () => {
-    resetDragState()
+    moveTask(draggedTaskId, { q: targetQ }, targetIndex, 'q', targetQ)
+    handleDragEnd()
   }
 
   const handleToggleComplete = (task: Task) => {
@@ -221,17 +104,16 @@ export default function Matrix() {
     }
   }
 
-  const renderTask = (task: Task, quadrant: Quadrant) => (
+  const renderTask = (task: Task) => (
     <div
       key={task.id}
-      className={`task ${task.completed ? 'completed' : ''} ${draggedTask?.id === task.id ? 'dragging' : ''} ${dragOverTaskId === task.id ? 'drag-over' : ''}`}
+      className={`task ${task.completed ? 'completed' : ''} ${draggedTaskId === task.id ? 'dragging' : ''} ${dragOverTaskId === task.id ? 'drag-over' : ''}`}
       draggable
-      onDragStart={(e) => handleDragStart(e, task.id, task)}
+      onDragStart={(e) => handleDragStart(e, task.id)}
       onDragEnd={handleDragEnd}
       onDragEnter={(e) => handleTaskDragEnter(e, task.id)}
-      onDragLeave={(e) => handleTaskDragLeave(e, task.id)}
       onDragOver={handleTaskDragOver}
-      onDrop={(e) => handleTaskDrop(e, task, quadrant)}
+      onDrop={(e) => handleTaskDrop(e, task)}
       onClick={() => setActiveTask(task)}
     >
       <span className="drag-handle">⋮⋮</span>
@@ -246,26 +128,6 @@ export default function Matrix() {
     </div>
   )
 
-  const renderQuadrantContent = (quadrant: Quadrant) => {
-    const quadrantTasks = getTasksByQuadrant(quadrant)
-    return (
-      <>
-        <div className="tasks">
-          {quadrantTasks.map(task => renderTask(task, quadrant))}
-        </div>
-        {quadrantTasks.length > 0 && (
-          <div
-            className={`tasks-drop-end ${dragOverEnd === quadrant ? 'drag-over' : ''}`}
-            onDragEnter={(e) => handleEndDragEnter(e, quadrant)}
-            onDragLeave={(e) => handleEndDragLeave(e, quadrant)}
-            onDragOver={handleTaskDragOver}
-            onDrop={(e) => handleEndDrop(e, quadrant)}
-          />
-        )}
-      </>
-    )
-  }
-
   if (loading) {
     return (
       <>
@@ -275,6 +137,8 @@ export default function Matrix() {
     )
   }
 
+  const unassignedTasks = getTasksByQuadrant(null)
+
   return (
     <>
       <header><h1>Eisenhower Matrix</h1></header>
@@ -283,34 +147,41 @@ export default function Matrix() {
         <div className="unassigned-column">
           <div
             className={`card ${dragOverQuadrant === 'unassigned' ? 'drag-over' : ''}`}
-            onDragOver={(e) => handleDragOver(e, 'unassigned')}
+            onDragOver={(e) => handleQuadrantDragOver(e, 'unassigned')}
             onDragLeave={() => setDragOverQuadrant(null)}
-            onDrop={() => handleDrop('unassigned')}
+            onDrop={(e) => handleQuadrantDrop(e, 'unassigned')}
           >
             <div className="card-header gray">
               Unassigned
               <small>Drag tasks here</small>
             </div>
-            {renderQuadrantContent('unassigned')}
+            <div className="tasks">
+              {unassignedTasks.map(task => renderTask(task))}
+            </div>
           </div>
         </div>
 
         <div className="matrix">
-          {QUADRANTS.map(q => (
-            <div
-              key={q.id}
-              className={`card ${dragOverQuadrant === q.id ? 'drag-over' : ''}`}
-              onDragOver={(e) => handleDragOver(e, q.id)}
-              onDragLeave={() => setDragOverQuadrant(null)}
-              onDrop={() => handleDrop(q.id)}
-            >
-              <div className={`card-header ${q.color}`}>
-                {q.title}
-                <small>{q.subtitle}</small>
+          {QUADRANTS.map(q => {
+            const quadrantTasks = getTasksByQuadrant(q.id)
+            return (
+              <div
+                key={q.id}
+                className={`card ${dragOverQuadrant === q.id ? 'drag-over' : ''}`}
+                onDragOver={(e) => handleQuadrantDragOver(e, q.id)}
+                onDragLeave={() => setDragOverQuadrant(null)}
+                onDrop={(e) => handleQuadrantDrop(e, q.id)}
+              >
+                <div className={`card-header ${q.color}`}>
+                  {q.title}
+                  <small>{q.subtitle}</small>
+                </div>
+                <div className="tasks">
+                  {quadrantTasks.map(task => renderTask(task))}
+                </div>
               </div>
-              {renderQuadrantContent(q.id)}
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 

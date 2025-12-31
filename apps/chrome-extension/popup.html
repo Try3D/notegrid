@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NoteGrid Bookmarks</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Short+Stack&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header with settings -->
+    <header class="header">
+      <h1 class="title">NoteGrid</h1>
+      <button id="settingsBtn" class="icon-btn" title="Settings">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </header>
+
+    <!-- Main View: Login options -->
+    <div id="mainView" class="view">
+      <p class="description">
+        This app uses a simple secret code instead of username/password.
+        Your code is your identity - keep it safe!
+      </p>
+      <button id="generateBtn" class="btn primary">Generate New Code</button>
+      <button id="haveCodeBtn" class="btn secondary">I Have a Code</button>
+    </div>
+
+    <!-- Generate View: Show new UUID -->
+    <div id="generateView" class="view hidden">
+      <div class="warning">
+        This is your secret code. Save it somewhere safe - you won't see it again!
+      </div>
+      <div class="code-display">
+        <code id="generatedCode"></code>
+        <button id="copyBtn" class="icon-btn" title="Copy to clipboard">
+          <svg id="copyIcon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <svg id="checkIcon" class="hidden" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 6L9 17l-5-5"></path>
+          </svg>
+        </button>
+      </div>
+      <label class="checkbox-label">
+        <input type="checkbox" id="savedCheckbox">
+        <span>I have saved my code safely</span>
+      </label>
+      <button id="continueBtn" class="btn primary" disabled>Continue</button>
+      <button id="backFromGenerate" class="btn secondary">Back</button>
+    </div>
+
+    <!-- Enter Code View -->
+    <div id="enterView" class="view hidden">
+      <p class="description">Enter your secret code to access your data.</p>
+      <input type="text" id="codeInput" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+      <div id="loginError" class="error-msg hidden"></div>
+      <button id="loginBtn" class="btn primary">Login</button>
+      <button id="backFromEnter" class="btn secondary">Back</button>
+    </div>
+
+    <!-- Bookmark View: Main action view when logged in -->
+    <div id="bookmarkView" class="view hidden">
+      <div id="pageInfo" class="page-info">
+        <img id="pageFavicon" src="" alt="" class="page-favicon">
+        <div class="page-details">
+          <div id="pageTitle" class="page-title"></div>
+          <div id="pageUrl" class="page-url"></div>
+        </div>
+      </div>
+      <button id="saveBtn" class="btn primary save-btn">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+        </svg>
+        Save Bookmark
+      </button>
+    </div>
+
+    <!-- Status View: Saving/Success/Already exists -->
+    <div id="statusView" class="view hidden">
+      <div id="statusContent" class="status-content">
+        <div id="statusIcon" class="status-icon"></div>
+        <div id="statusText" class="status-text"></div>
+      </div>
+    </div>
+
+    <!-- Settings View -->
+    <div id="settingsView" class="view hidden">
+      <h2 class="section-title">Settings</h2>
+
+      <!-- UUID section -->
+      <div class="settings-section">
+        <label class="settings-label">Your Secret Code</label>
+        <div class="uuid-display">
+          <code id="currentUuid" class="uuid-hidden"></code>
+          <div class="uuid-actions">
+            <button id="toggleUuidBtn" class="icon-btn" title="Show/Hide">
+              <svg id="eyeIcon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <svg id="eyeOffIcon" class="hidden" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+              </svg>
+            </button>
+            <button id="copyUuidBtn" class="icon-btn" title="Copy">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <button id="logoutBtn" class="btn danger">Logout</button>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

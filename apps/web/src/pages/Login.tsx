@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useSetAtom } from "jotai";
+import { setUuidAtom, generateUUID, isValidUUID } from "../store";
 import { useTheme } from "../context/ThemeContext";
 import { API_URL } from "../config";
 
@@ -15,7 +16,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const { setUUID, generateUUID, isValidUUID } = useAuth();
+  const setUUID = useSetAtom(setUuidAtom);
   const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
