@@ -3,6 +3,7 @@ import type { Task, Link, UserData } from "@eisenhower/shared";
 import { API_URL } from "../config";
 
 const CACHE_KEY = "eisenhower_data";
+const POLL_INTERVAL = 30000; // 30 seconds
 
 // Base atoms
 export const uuidAtom = atom<string | null>(localStorage.getItem("uuid"));
@@ -50,7 +51,33 @@ const saveData = (uuid: string | null, data: UserData) => {
   if (uuid) saveToAPI(uuid, data);
 };
 
-// Fetch data action
+// Force fetch from server - always overwrites local data
+const forceFetchFromServer = async (uuid: string): Promise<UserData | null> => {
+  try {
+    // Add timestamp to bust any caching
+    const response = await fetch(`${API_URL}/api/data?_t=${Date.now()}`, {
+      headers: {
+        Authorization: `Bearer ${uuid}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+    const result = await response.json();
+    if (result.success && result.data) {
+      return result.data;
+    }
+  } catch (error) {
+    console.error("Failed to fetch from server:", error);
+  }
+  return null;
+};
+
+function createEmptyData(): UserData {
+  const now = Date.now();
+  return { tasks: [], links: [], createdAt: now, updatedAt: now };
+}
+
+// Fetch data action - ALWAYS fetches from server (source of truth)
 export const fetchDataAtom = atom(null, async (get, set) => {
   const uuid = get(uuidAtom);
   if (!uuid) {
@@ -59,47 +86,95 @@ export const fetchDataAtom = atom(null, async (get, set) => {
     return;
   }
 
-  // Load from cache first
-  const cached = localStorage.getItem(CACHE_KEY);
-  if (cached) {
-    try {
-      set(userDataAtom, JSON.parse(cached));
-    } catch {}
-  }
+  set(loadingAtom, true);
 
-  try {
-    const response = await fetch(`${API_URL}/api/data`, {
-      headers: {
-        Authorization: `Bearer ${uuid}`,
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache",
-      },
-      cache: "no-store",
-    });
-    const result = await response.json();
+  // Server is the source of truth - always fetch from server
+  const serverData = await forceFetchFromServer(uuid);
 
-    if (result.success && result.data) {
-      set(userDataAtom, result.data);
-      localStorage.setItem(CACHE_KEY, JSON.stringify(result.data));
+  if (serverData) {
+    // Force update both state and localStorage
+    set(userDataAtom, serverData);
+    localStorage.setItem(CACHE_KEY, JSON.stringify(serverData));
+  } else {
+    // Only fallback to cache if server is unreachable
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      try {
+        set(userDataAtom, JSON.parse(cached));
+      } catch {
+        set(userDataAtom, createEmptyData());
+      }
     } else {
-      const emptyData = createEmptyData();
-      set(userDataAtom, emptyData);
-      localStorage.setItem(CACHE_KEY, JSON.stringify(emptyData));
-    }
-  } catch (error) {
-    console.error("Failed to fetch data:", error);
-    if (!cached) {
       set(userDataAtom, createEmptyData());
     }
-  } finally {
-    set(loadingAtom, false);
+  }
+
+  set(loadingAtom, false);
+});
+
+// Sync action - for polling (also forces server data)
+export const syncFromServerAtom = atom(null, async (get, set) => {
+  const uuid = get(uuidAtom);
+  if (!uuid) return;
+
+  const serverData = await forceFetchFromServer(uuid);
+
+  if (serverData) {
+    // Force update both state and localStorage
+    set(userDataAtom, serverData);
+    localStorage.setItem(CACHE_KEY, JSON.stringify(serverData));
   }
 });
 
-function createEmptyData(): UserData {
-  const now = Date.now();
-  return { tasks: [], links: [], createdAt: now, updatedAt: now };
-}
+// Polling
+let pollInterval: number | null = null;
+
+export const startPollingAtom = atom(null, (get, set) => {
+  const uuid = get(uuidAtom);
+  if (!uuid) return;
+
+  // Stop any existing polling
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+
+  // Sync function
+  const syncFromServer = async () => {
+    const serverData = await forceFetchFromServer(uuid);
+    if (serverData) {
+      set(userDataAtom, serverData);
+      localStorage.setItem(CACHE_KEY, JSON.stringify(serverData));
+    }
+  };
+
+  // Start polling every 30 seconds
+  pollInterval = window.setInterval(syncFromServer, POLL_INTERVAL);
+
+  // Also sync on visibility change (tab focus)
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === "visible") {
+      syncFromServer();
+    }
+  };
+
+  // Also sync on window focus
+  const handleFocus = () => {
+    syncFromServer();
+  };
+
+  document.removeEventListener("visibilitychange", handleVisibilityChange);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  window.removeEventListener("focus", handleFocus);
+  window.addEventListener("focus", handleFocus);
+});
+
+export const stopPollingAtom = atom(null, () => {
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+});
 
 // Task actions
 export const addTaskAtom = atom(null, (get, set, partial: Partial<Task>) => {
@@ -352,94 +427,3 @@ export const isValidUUID = (uuid: string): boolean => {
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   return uuidRegex.test(uuid);
 };
-
-// Polling for data sync
-const POLL_INTERVAL = 60000; // 60 seconds
-let pollInterval: number | null = null;
-
-const fetchLatestData = async (uuid: string): Promise<UserData | null> => {
-  try {
-    const response = await fetch(`${API_URL}/api/data`, {
-      headers: {
-        Authorization: `Bearer ${uuid}`,
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache",
-      },
-      cache: "no-store",
-    });
-    const result = await response.json();
-    if (result.success && result.data) {
-      return result.data;
-    }
-  } catch (error) {
-    console.error("Failed to fetch latest data:", error);
-  }
-  return null;
-};
-
-export const startPollingAtom = atom(null, (get, set) => {
-  const uuid = get(uuidAtom);
-  if (!uuid) return;
-
-  // Stop any existing polling
-  if (pollInterval) {
-    clearInterval(pollInterval);
-    pollInterval = null;
-  }
-
-  // Function to check and update data
-  const checkForUpdates = async () => {
-    const currentData = get(userDataAtom);
-    const latestData = await fetchLatestData(uuid);
-    
-    if (latestData && currentData) {
-      // Only update if remote data is newer
-      if (latestData.updatedAt > currentData.updatedAt) {
-        set(userDataAtom, latestData);
-        localStorage.setItem(CACHE_KEY, JSON.stringify(latestData));
-      }
-    } else if (latestData && !currentData) {
-      set(userDataAtom, latestData);
-      localStorage.setItem(CACHE_KEY, JSON.stringify(latestData));
-    }
-  };
-
-  // Start polling every 60 seconds
-  pollInterval = window.setInterval(checkForUpdates, POLL_INTERVAL);
-
-  // Set up visibility change handler
-  const handleVisibilityChange = () => {
-    if (document.visibilityState === "visible") {
-      // Fetch immediately when tab becomes visible
-      checkForUpdates();
-      // Restart polling
-      if (!pollInterval) {
-        pollInterval = window.setInterval(checkForUpdates, POLL_INTERVAL);
-      }
-    } else {
-      // Stop polling when tab is hidden
-      if (pollInterval) {
-        clearInterval(pollInterval);
-        pollInterval = null;
-      }
-    }
-  };
-
-  // Remove any existing listener and add new one
-  document.removeEventListener("visibilitychange", handleVisibilityChange);
-  document.addEventListener("visibilitychange", handleVisibilityChange);
-
-  // Also fetch on window focus (covers more cases)
-  const handleFocus = () => {
-    checkForUpdates();
-  };
-  window.removeEventListener("focus", handleFocus);
-  window.addEventListener("focus", handleFocus);
-});
-
-export const stopPollingAtom = atom(null, () => {
-  if (pollInterval) {
-    clearInterval(pollInterval);
-    pollInterval = null;
-  }
-});
