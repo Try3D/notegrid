@@ -14,10 +14,9 @@
   --blue: #3b82f6;
   --danger: #dc2626;
 
-  --sidebar-bg: #fdf7f1;
-  --sidebar-border: #3c3c3c;
+  --sidebar-bg: #f5ebe0;
   --sidebar-icon: #3c3c3c;
-  --sidebar-hover: #f5ebe0;
+  --sidebar-hover: #ebe0d5;
 }
 
 body.dark {
@@ -30,8 +29,7 @@ body.dark {
   --task-bg: #252525;
   --task-bg-alt: #2a2a2a;
 
-  --sidebar-bg: #1a1a1a;
-  --sidebar-border: #e0e0e0;
+  --sidebar-bg: #252525;
   --sidebar-icon: #e0e0e0;
   --sidebar-hover: #333333;
 }
@@ -61,7 +59,6 @@ body {
   position: sticky;
   top: 0;
   background: var(--sidebar-bg);
-  border-right: 3px solid var(--sidebar-border);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -80,18 +77,15 @@ body {
   color: var(--sidebar-icon);
   text-decoration: none;
   transition: 0.15s;
-  border: 2px solid transparent;
-  border-radius: 2px;
+  border-radius: 4px;
 }
 
 .sidebar-icon:hover {
   background: var(--sidebar-hover);
-  border-color: var(--sidebar-border);
 }
 
 .sidebar-icon.active {
   background: var(--blue);
-  border-color: var(--sidebar-border);
   color: #ffffff;
 }
 
@@ -109,15 +103,14 @@ body {
   justify-content: center;
   color: var(--sidebar-icon);
   background: none;
-  border: 2px solid transparent;
-  border-radius: 2px;
+  border: none;
+  border-radius: 4px;
   cursor: pointer;
   transition: 0.15s;
 }
 
 .theme-toggle:hover {
   background: var(--sidebar-hover);
-  border-color: var(--sidebar-border);
 }
 
 .main-content {
@@ -504,8 +497,6 @@ header h1 {
     left: 0;
     flex-direction: row;
     justify-content: center;
-    border-right: none;
-    border-bottom: 3px solid var(--sidebar-border);
     padding: 10px 16px;
     gap: 8px;
     z-index: 200;
@@ -1475,6 +1466,41 @@ body.dark .import-status.success {
 body.dark .import-status.error {
   background: #450a0a;
   color: #fecaca;
+}
+
+.theme-options {
+  display: flex;
+  gap: 12px;
+}
+
+.theme-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-family: "Short Stack", cursive;
+  font-size: 1em;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+.theme-option:hover {
+  background: var(--hover);
+}
+
+.theme-option.active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: white;
+}
+
+.theme-option svg {
+  flex-shrink: 0;
 }
 
 .settings-footer {
