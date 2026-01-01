@@ -95,9 +95,9 @@ app.get("/api/data", async (c) => {
     );
   }
 
-  const user = await c.env.DB.prepare(
-    "SELECT * FROM users WHERE uuid = ?"
-  ).bind(uuid).first<UserRow>();
+  const user = await c.env.DB.prepare("SELECT * FROM users WHERE uuid = ?")
+    .bind(uuid)
+    .first<UserRow>();
 
   if (!user) {
     const now = Date.now();
@@ -108,12 +108,16 @@ app.get("/api/data", async (c) => {
   }
 
   const taskRows = await c.env.DB.prepare(
-    "SELECT * FROM tasks WHERE user_uuid = ? ORDER BY sort_order ASC"
-  ).bind(uuid).all<TaskRow>();
+    "SELECT * FROM tasks WHERE user_uuid = ? ORDER BY sort_order ASC",
+  )
+    .bind(uuid)
+    .all<TaskRow>();
 
   const linkRows = await c.env.DB.prepare(
-    "SELECT * FROM links WHERE user_uuid = ? ORDER BY sort_order ASC"
-  ).bind(uuid).all<LinkRow>();
+    "SELECT * FROM links WHERE user_uuid = ? ORDER BY sort_order ASC",
+  )
+    .bind(uuid)
+    .all<LinkRow>();
 
   const tasks = taskRows.results?.map(rowToTask) ?? [];
   const links = linkRows.results?.map(rowToLink) ?? [];
@@ -140,8 +144,10 @@ app.get("/api/tasks", async (c) => {
   }
 
   const taskRows = await c.env.DB.prepare(
-    "SELECT * FROM tasks WHERE user_uuid = ? ORDER BY sort_order ASC"
-  ).bind(uuid).all<TaskRow>();
+    "SELECT * FROM tasks WHERE user_uuid = ? ORDER BY sort_order ASC",
+  )
+    .bind(uuid)
+    .all<TaskRow>();
 
   const tasks = taskRows.results?.map(rowToTask) ?? [];
 
@@ -166,32 +172,36 @@ app.post("/api/tasks", async (c) => {
     const now = Date.now();
 
     const maxOrder = await c.env.DB.prepare(
-      "SELECT COALESCE(MAX(sort_order), -1) as max_order FROM tasks WHERE user_uuid = ?"
-    ).bind(uuid).first<{ max_order: number }>();
+      "SELECT COALESCE(MAX(sort_order), -1) as max_order FROM tasks WHERE user_uuid = ?",
+    )
+      .bind(uuid)
+      .first<{ max_order: number }>();
 
     const sortOrder = (maxOrder?.max_order ?? -1) + 1;
 
     await c.env.DB.prepare(
       `INSERT INTO tasks (id, user_uuid, title, note, tags, color, q, kanban, completed, created_at, updated_at, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(
-      task.id,
-      uuid,
-      task.title,
-      task.note,
-      JSON.stringify(task.tags),
-      task.color,
-      task.q,
-      task.kanban,
-      task.completed ? 1 : 0,
-      task.createdAt,
-      task.updatedAt,
-      sortOrder,
-    ).run();
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+      .bind(
+        task.id,
+        uuid,
+        task.title,
+        task.note,
+        JSON.stringify(task.tags),
+        task.color,
+        task.q,
+        task.kanban,
+        task.completed ? 1 : 0,
+        task.createdAt,
+        task.updatedAt,
+        sortOrder,
+      )
+      .run();
 
-    await c.env.DB.prepare(
-      "UPDATE users SET updated_at = ? WHERE uuid = ?"
-    ).bind(now, uuid).run();
+    await c.env.DB.prepare("UPDATE users SET updated_at = ? WHERE uuid = ?")
+      .bind(now, uuid)
+      .run();
 
     return c.json<ApiResponse<Task>>({
       success: true,
@@ -221,8 +231,10 @@ app.put("/api/tasks/:id", async (c) => {
     const now = Date.now();
 
     const existing = await c.env.DB.prepare(
-      "SELECT * FROM tasks WHERE id = ? AND user_uuid = ?"
-    ).bind(taskId, uuid).first<TaskRow>();
+      "SELECT * FROM tasks WHERE id = ? AND user_uuid = ?",
+    )
+      .bind(taskId, uuid)
+      .first<TaskRow>();
 
     if (!existing) {
       return c.json<ApiResponse<null>>(
@@ -234,27 +246,35 @@ app.put("/api/tasks/:id", async (c) => {
     await c.env.DB.prepare(
       `UPDATE tasks SET
         title = ?, note = ?, tags = ?, color = ?, q = ?, kanban = ?, completed = ?, updated_at = ?
-       WHERE id = ? AND user_uuid = ?`
-    ).bind(
-      updates.title ?? existing.title,
-      updates.note ?? existing.note,
-      updates.tags ? JSON.stringify(updates.tags) : existing.tags,
-      updates.color ?? existing.color,
-      updates.q !== undefined ? updates.q : existing.q,
-      updates.kanban !== undefined ? updates.kanban : existing.kanban,
-      updates.completed !== undefined ? (updates.completed ? 1 : 0) : existing.completed,
-      now,
-      taskId,
-      uuid,
-    ).run();
+       WHERE id = ? AND user_uuid = ?`,
+    )
+      .bind(
+        updates.title ?? existing.title,
+        updates.note ?? existing.note,
+        updates.tags ? JSON.stringify(updates.tags) : existing.tags,
+        updates.color ?? existing.color,
+        updates.q !== undefined ? updates.q : existing.q,
+        updates.kanban !== undefined ? updates.kanban : existing.kanban,
+        updates.completed !== undefined
+          ? updates.completed
+            ? 1
+            : 0
+          : existing.completed,
+        now,
+        taskId,
+        uuid,
+      )
+      .run();
 
-    await c.env.DB.prepare(
-      "UPDATE users SET updated_at = ? WHERE uuid = ?"
-    ).bind(now, uuid).run();
+    await c.env.DB.prepare("UPDATE users SET updated_at = ? WHERE uuid = ?")
+      .bind(now, uuid)
+      .run();
 
     const updatedRow = await c.env.DB.prepare(
-      "SELECT * FROM tasks WHERE id = ? AND user_uuid = ?"
-    ).bind(taskId, uuid).first<TaskRow>();
+      "SELECT * FROM tasks WHERE id = ? AND user_uuid = ?",
+    )
+      .bind(taskId, uuid)
+      .first<TaskRow>();
 
     return c.json<ApiResponse<Task>>({
       success: true,
@@ -281,13 +301,13 @@ app.delete("/api/tasks/:id", async (c) => {
 
   const now = Date.now();
 
-  await c.env.DB.prepare(
-    "DELETE FROM tasks WHERE id = ? AND user_uuid = ?"
-  ).bind(taskId, uuid).run();
+  await c.env.DB.prepare("DELETE FROM tasks WHERE id = ? AND user_uuid = ?")
+    .bind(taskId, uuid)
+    .run();
 
-  await c.env.DB.prepare(
-    "UPDATE users SET updated_at = ? WHERE uuid = ?"
-  ).bind(now, uuid).run();
+  await c.env.DB.prepare("UPDATE users SET updated_at = ? WHERE uuid = ?")
+    .bind(now, uuid)
+    .run();
 
   return c.json<ApiResponse<null>>({
     success: true,
@@ -310,15 +330,15 @@ app.put("/api/tasks/reorder", async (c) => {
 
     const statements = taskIds.map((id, index) =>
       c.env.DB.prepare(
-        "UPDATE tasks SET sort_order = ?, updated_at = ? WHERE id = ? AND user_uuid = ?"
-      ).bind(index, now, id, uuid)
+        "UPDATE tasks SET sort_order = ?, updated_at = ? WHERE id = ? AND user_uuid = ?",
+      ).bind(index, now, id, uuid),
     );
 
     await c.env.DB.batch(statements);
 
-    await c.env.DB.prepare(
-      "UPDATE users SET updated_at = ? WHERE uuid = ?"
-    ).bind(now, uuid).run();
+    await c.env.DB.prepare("UPDATE users SET updated_at = ? WHERE uuid = ?")
+      .bind(now, uuid)
+      .run();
 
     return c.json<ApiResponse<null>>({
       success: true,
@@ -342,8 +362,10 @@ app.get("/api/links", async (c) => {
   }
 
   const linkRows = await c.env.DB.prepare(
-    "SELECT * FROM links WHERE user_uuid = ? ORDER BY sort_order ASC"
-  ).bind(uuid).all<LinkRow>();
+    "SELECT * FROM links WHERE user_uuid = ? ORDER BY sort_order ASC",
+  )
+    .bind(uuid)
+    .all<LinkRow>();
 
   const links = linkRows.results?.map(rowToLink) ?? [];
 
@@ -368,27 +390,31 @@ app.post("/api/links", async (c) => {
     const now = Date.now();
 
     const maxOrder = await c.env.DB.prepare(
-      "SELECT COALESCE(MAX(sort_order), -1) as max_order FROM links WHERE user_uuid = ?"
-    ).bind(uuid).first<{ max_order: number }>();
+      "SELECT COALESCE(MAX(sort_order), -1) as max_order FROM links WHERE user_uuid = ?",
+    )
+      .bind(uuid)
+      .first<{ max_order: number }>();
 
     const sortOrder = (maxOrder?.max_order ?? -1) + 1;
 
     await c.env.DB.prepare(
       `INSERT INTO links (id, user_uuid, url, title, favicon, created_at, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).bind(
-      link.id,
-      uuid,
-      link.url,
-      link.title,
-      link.favicon,
-      link.createdAt,
-      sortOrder,
-    ).run();
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    )
+      .bind(
+        link.id,
+        uuid,
+        link.url,
+        link.title,
+        link.favicon,
+        link.createdAt,
+        sortOrder,
+      )
+      .run();
 
-    await c.env.DB.prepare(
-      "UPDATE users SET updated_at = ? WHERE uuid = ?"
-    ).bind(now, uuid).run();
+    await c.env.DB.prepare("UPDATE users SET updated_at = ? WHERE uuid = ?")
+      .bind(now, uuid)
+      .run();
 
     return c.json<ApiResponse<Link>>({
       success: true,
@@ -415,13 +441,13 @@ app.delete("/api/links/:id", async (c) => {
 
   const now = Date.now();
 
-  await c.env.DB.prepare(
-    "DELETE FROM links WHERE id = ? AND user_uuid = ?"
-  ).bind(linkId, uuid).run();
+  await c.env.DB.prepare("DELETE FROM links WHERE id = ? AND user_uuid = ?")
+    .bind(linkId, uuid)
+    .run();
 
-  await c.env.DB.prepare(
-    "UPDATE users SET updated_at = ? WHERE uuid = ?"
-  ).bind(now, uuid).run();
+  await c.env.DB.prepare("UPDATE users SET updated_at = ? WHERE uuid = ?")
+    .bind(now, uuid)
+    .run();
 
   return c.json<ApiResponse<null>>({
     success: true,
@@ -444,15 +470,15 @@ app.put("/api/links/reorder", async (c) => {
 
     const statements = linkIds.map((id, index) =>
       c.env.DB.prepare(
-        "UPDATE links SET sort_order = ? WHERE id = ? AND user_uuid = ?"
-      ).bind(index, id, uuid)
+        "UPDATE links SET sort_order = ? WHERE id = ? AND user_uuid = ?",
+      ).bind(index, id, uuid),
     );
 
     await c.env.DB.batch(statements);
 
-    await c.env.DB.prepare(
-      "UPDATE users SET updated_at = ? WHERE uuid = ?"
-    ).bind(now, uuid).run();
+    await c.env.DB.prepare("UPDATE users SET updated_at = ? WHERE uuid = ?")
+      .bind(now, uuid)
+      .run();
 
     return c.json<ApiResponse<null>>({
       success: true,
@@ -475,9 +501,9 @@ app.get("/api/exists/:uuid", async (c) => {
     });
   }
 
-  const user = await c.env.DB.prepare(
-    "SELECT 1 FROM users WHERE uuid = ?"
-  ).bind(uuid).first();
+  const user = await c.env.DB.prepare("SELECT 1 FROM users WHERE uuid = ?")
+    .bind(uuid)
+    .first();
 
   return c.json<ApiResponse<{ exists: boolean }>>({
     success: true,
@@ -498,8 +524,10 @@ app.post("/api/register", async (c) => {
     }
 
     const existing = await c.env.DB.prepare(
-      "SELECT 1 FROM users WHERE uuid = ?"
-    ).bind(uuid).first();
+      "SELECT 1 FROM users WHERE uuid = ?",
+    )
+      .bind(uuid)
+      .first();
 
     if (existing) {
       return c.json<ApiResponse<null>>(
@@ -510,8 +538,10 @@ app.post("/api/register", async (c) => {
 
     const now = Date.now();
     await c.env.DB.prepare(
-      "INSERT INTO users (uuid, created_at, updated_at) VALUES (?, ?, ?)"
-    ).bind(uuid, now, now).run();
+      "INSERT INTO users (uuid, created_at, updated_at) VALUES (?, ?, ?)",
+    )
+      .bind(uuid, now, now)
+      .run();
 
     return c.json<ApiResponse<UserData>>({
       success: true,
@@ -535,8 +565,12 @@ app.delete("/api/account", async (c) => {
     );
   }
 
-  await c.env.DB.prepare("DELETE FROM tasks WHERE user_uuid = ?").bind(uuid).run();
-  await c.env.DB.prepare("DELETE FROM links WHERE user_uuid = ?").bind(uuid).run();
+  await c.env.DB.prepare("DELETE FROM tasks WHERE user_uuid = ?")
+    .bind(uuid)
+    .run();
+  await c.env.DB.prepare("DELETE FROM links WHERE user_uuid = ?")
+    .bind(uuid)
+    .run();
   await c.env.DB.prepare("DELETE FROM users WHERE uuid = ?").bind(uuid).run();
 
   return c.json<ApiResponse<null>>({

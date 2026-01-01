@@ -39,6 +39,17 @@ export const fetchDataAtom = atom(null, async (get, set) => {
   set(loadingAtom, true);
 
   try {
+    // Ensure user exists in D1 (auto-register if not)
+    const existsRes = await fetch(`${API_URL}/api/exists/${uuid}`);
+    const existsData = await existsRes.json();
+    if (!existsData.data?.exists) {
+      await fetch(`${API_URL}/api/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uuid }),
+      });
+    }
+
     const response = await fetch(`${API_URL}/api/data`, {
       headers: getAuthHeaders(uuid),
     });

@@ -21,6 +21,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _showUUID = false;
   bool _showDeleteConfirm = false;
   bool _deleting = false;
+  bool _importing = false;
   bool _copied = false;
   String? _importStatus;
   bool _importSuccess = false;
@@ -58,6 +59,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _handleImport() async {
+    if (_importing) return;
+
     final clipboardData = await Clipboard.getData('text/plain');
     if (clipboardData?.text == null) {
       setState(() {
@@ -67,12 +70,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
 
+    setState(() {
+      _importing = true;
+      _importStatus = null;
+    });
+
     try {
       final json = jsonDecode(clipboardData!.text!);
       final data = context.read<DataProvider>();
       final result = await data.importData(json);
 
       setState(() {
+        _importing = false;
         if (result.success) {
           _importStatus =
               'Imported ${result.tasksImported} tasks and ${result.linksImported} links successfully!';
@@ -84,6 +93,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       });
     } catch (e) {
       setState(() {
+        _importing = false;
         _importStatus = 'Invalid JSON format';
         _importSuccess = false;
       });
@@ -346,13 +356,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         HandDrawnButton(
-          onPressed: _handleImport,
+          onPressed: _importing ? null : _handleImport,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.upload, color: context.textColor),
+              Icon(
+                Icons.upload,
+                color: _importing ? context.mutedColor : context.textColor,
+              ),
               const SizedBox(width: 10),
-              Flexible(child: const Text('Import from Clipboard')),
+              if (_importing)
+                _LoadingDots()
+              else
+                const Text('Import from Clipboard'),
             ],
           ),
         ),
@@ -524,6 +540,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _LoadingDots extends StatefulWidget {
+  @override
+  State<_LoadingDots> createState() => _LoadingDotsState();
+}
+
+class _LoadingDotsState extends State<_LoadingDots>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  int _dotCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller =
+        AnimationController(
+          duration: const Duration(milliseconds: 400),
+          vsync: this,
+        )..addStatusListener((status) {
+          if (status == AnimationStatus.completed) {
+            setState(() {
+              _dotCount = (_dotCount + 1) % 4;
+            });
+            _controller.forward(from: 0);
+          }
+        });
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      'Importing${'.' * _dotCount}',
+      style: TextStyle(fontFamily: 'ShortStack', fontSize: 16),
     );
   }
 }

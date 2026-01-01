@@ -16,6 +16,7 @@ export default function Settings() {
   const [showUUID, setShowUUID] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [importStatus, setImportStatus] = useState<{
     type: "success" | "error";
@@ -51,6 +52,7 @@ export default function Settings() {
   };
 
   const handleImportClick = () => {
+    if (importing) return;
     fileInputRef.current?.click();
   };
 
@@ -59,6 +61,7 @@ export default function Settings() {
     if (!file) return;
 
     setImportStatus(null);
+    setImporting(true);
 
     try {
       const text = await file.text();
@@ -80,6 +83,8 @@ export default function Settings() {
         type: "error",
         message: "Failed to read file",
       });
+    } finally {
+      setImporting(false);
     }
 
     if (fileInputRef.current) {
@@ -225,20 +230,44 @@ export default function Settings() {
             accept=".json,application/json"
             style={{ display: "none" }}
           />
-          <button className="settings-btn" onClick={handleImportClick}>
-            <svg
-              viewBox="0 0 24 24"
-              width="20"
-              height="20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
-            Import from JSON
+          <button 
+            className="settings-btn" 
+            onClick={handleImportClick}
+            disabled={importing}
+          >
+            {importing ? (
+              <>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                <span className="loading-dots">Importing</span>
+              </>
+            ) : (
+              <>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                Import from JSON
+              </>
+            )}
           </button>
           {importStatus && (
             <p className={`import-status ${importStatus.type}`}>
