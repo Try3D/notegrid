@@ -1,24 +1,69 @@
-# NoteGrid
-
 <p align="center">
   <img src="assets/banner.png" alt="NoteGrid - Organize your links and tasks">
 </p>
 
----
-
 ## What is NoteGrid?
 
-NoteGrid is a cross-platform app that helps you manage your todos and links:
+NoteGrid is a FOSS cross-platform app that helps you manage your todos and links. It contains:
 
-- **Eisenhower Matrix** - Sort tasks by urgency and importance into 4 quadrants: Do, Schedule, Delegate, Eliminate
-- **Kanban Board** - Track task progress through stages: Backlog, To Do, In Progress, Done
-- **Bookmarks manager** - Save links for later reference.
+- **Eisenhower Matrix** - Sort tasks by urgency and importance
+- **Kanban Board** - Track task progress through stages of completion
+- **Bookmarks manager** - Save links for later reference
 
 All your data syncs automatically across devices.
 
 ## No Account Required
 
 NoteGrid uses a unique UUID generated on registering instead of username/password. Store it somewhere safe as it is the only way to access your data:
+
+## Motivation
+
+I wanted a simple productivity app that works cross platform without the bloat of or limitations of basic todo apps
+
+Most productivity apps either:
+- Are paid or sell your data to third party
+- Force you into their specific workflow
+- Are overcomplicated with features
+
+NoteGrid is different: it's simple, no login, works everywhere and free, no questions asked :)
+
+## Download
+
+### Web
+
+Visit [notegrid.pages.dev](https://notegrid.pages.dev)
+
+### Android
+
+1. Download the APK from the [Releases](https://github.com/rsarans/notegrid/releases) page
+2. Open the APK on your device
+3. If prompted, enable "Install from unknown sources" in Settings
+4. Install and open the app
+
+### Chrome Extension
+
+1. Download the `.crx` file from the [Releases](https://github.com/rsarans/notegrid/releases) page
+2. Open `chrome://extensions` in Chrome
+3. Enable "Developer mode" (toggle in top right)
+4. Drag and drop the `.crx` file onto the page, or:
+   - Click "Load unpacked"
+   - Select the extracted extension folder
+
+### iOS
+
+Ew apple
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| Web | React + Vite + Jotai |
+| Mobile/Desktop | Flutter |
+| Browser Extension | Chrome Extension (Manifest V3) |
+| Backend | Hono on Cloudflare Workers |
+| Database | Cloudflare R1 |
+
+## Screenshots
 
 ### Web
 
